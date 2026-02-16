@@ -1,0 +1,40 @@
+.dashboard h1 {
+  margin: 0 0 1.5rem;
+  color: #1e293b;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.25rem;
+}
+
+.metric-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.metric-label {
+  font-size: 0.85rem;
+  color: #64748b;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.metric-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.dashboard-hint {
+  margin-top: 2rem;
+  color: #94a3b8;
+  font-style: italic;
+}

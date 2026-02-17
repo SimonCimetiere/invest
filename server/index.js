@@ -16,22 +16,30 @@ app.use(express.json())
 // ---- Auth ----
 
 app.post('/api/auth/login', async (req, res) => {
-  const { username, password } = req.body
-  if (!username || !password) return res.status(400).json({ error: 'Username and password required' })
+  try {
+    const { username, password } = req.body
+    if (!username || !password) return res.status(400).json({ error: 'Username and password required' })
 
-  const { rows } = await pool.query('SELECT * FROM users WHERE username = $1', [username])
-  if (rows.length === 0) return res.status(401).json({ error: 'Identifiants incorrects' })
+    const { rows } = await pool.query('SELECT * FROM users WHERE username = $1', [username])
+    if (rows.length === 0) return res.status(401).json({ error: 'Identifiants incorrects' })
 
-  const user = rows[0]
-  const valid = await bcrypt.compare(password, user.password_hash)
-  if (!valid) return res.status(401).json({ error: 'Identifiants incorrects' })
+    const user = rows[0]
+    const valid = await bcrypt.compare(password, user.password_hash)
+    if (!valid) return res.status(401).json({ error: 'Identifiants incorrects' })
 
-  const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' })
-  res.json({ token, user: { id: user.id, username: user.username } })
+    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' })
+    res.json({ token, user: { id: user.id, username: user.username } })
+  } catch (err) {
+    console.error('Login error:', err)
+    res.status(500).json({ error: 'Erreur serveur' })
+  }
 })
 
 // Auth middleware for all other /api routes
 app.use('/api', (req, res, next) => {
+  // Skip auth for login route
+  if (req.path === '/auth/login') return next()
+
   const auth = req.headers.authorization
   if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ error: 'Token manquant' })
 
@@ -309,11 +317,21 @@ app.delete('/api/annonces/:id', async (req, res) => {
   res.status(204).end()
 })
 
+// JSON error handler for API routes
+app.use('/api', (err, req, res, next) => {
+  console.error('API error:', err)
+  res.status(500).json({ error: 'Erreur serveur' })
+})
+
 // Serve static files in production
 const distPath = path.join(__dirname, '..', 'dist')
 app.use(express.static(distPath))
-app.get('*', (req, res) => {
-  res.sendFile(path.join(distPath, 'index.html'))
+app.use((req, res, next) => {
+  if (req.method === 'GET' && !req.path.startsWith('/api')) {
+    res.sendFile(path.join(distPath, 'index.html'))
+  } else {
+    next()
+  }
 })
 
 const PORT = process.env.PORT || 3001

@@ -377,8 +377,11 @@ app.use((req, res, next) => {
 
 const PORT = process.env.PORT || 3001
 
-initDb().then(() => {
-  app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`)
+initDb()
+  .then(() => console.log('Database initialized'))
+  .catch(err => console.error('Database init failed:', err.message))
+  .finally(() => {
+    app.listen(PORT, () => {
+      console.log(`Server running on http://localhost:${PORT}`)
+    })
   })
-})

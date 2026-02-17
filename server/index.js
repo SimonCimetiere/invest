@@ -118,6 +118,16 @@ async function extractMeta(url) {
     signal: AbortSignal.timeout(15000),
   })
   const html = await res.text()
+
+  // Detect captcha/anti-bot pages (DataDome returns captcha-delivery scripts, or very short HTML with 403)
+  if (html.includes('captcha-delivery.com') || html.includes('geo.captcha-delivery') || html.includes('Please enable JS and disable any ad blocker') || (res.status === 403 && html.length < 5000)) {
+    console.log(`[meta] Captcha detected for ${url}`)
+    let source = 'autre'
+    if (url.includes('leboncoin.fr')) source = 'leboncoin'
+    else if (url.includes('seloger.com')) source = 'seloger'
+    return { title: null, description: null, image: null, price: null, surface: null, location: null, rooms: null, bedrooms: null, propertyType: null, energyRating: null, floor: null, charges: null, source, blocked: true }
+  }
+
   return extractFromHtml(html, url)
 }
 
@@ -241,15 +251,27 @@ app.post('/api/annonces/from-url', async (req, res) => {
     return res.status(409).json({ error: 'Cette annonce existe déjà', annonce: existing.rows[0] })
   }
 
+  // These sites block server-side fetch (captcha, SPA, anti-bot)
+  const BLOCKED_SITES = ['leboncoin.fr', 'seloger.com']
+  const isBlockedSite = BLOCKED_SITES.some(s => url.includes(s))
+
   let meta = { title: null, description: null, image: null, price: null, source: 'autre' }
-  try {
-    meta = await extractMeta(url)
-    console.log(`[meta] Extracted from ${url}:`, meta.title)
-  } catch (err) {
-    console.error(`[meta] Failed to extract from ${url}:`, err.message)
-    // Detect source even if extraction fails
+  let blocked = isBlockedSite
+
+  if (isBlockedSite) {
+    // Skip extraction, just detect source
     if (url.includes('leboncoin.fr')) meta.source = 'leboncoin'
     else if (url.includes('seloger.com')) meta.source = 'seloger'
+    console.log(`[meta] Skipping extraction for blocked site: ${meta.source}`)
+  } else {
+    try {
+      meta = await extractMeta(url)
+      blocked = !!meta.blocked
+      console.log(`[meta] Extracted from ${url}:`, meta.title)
+    } catch (err) {
+      console.error(`[meta] Failed to extract from ${url}:`, err.message)
+      blocked = true
+    }
   }
 
   const { rows } = await pool.query(
@@ -257,7 +279,9 @@ app.post('/api/annonces/from-url', async (req, res) => {
      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
     [meta.source, url, meta.title, meta.price, meta.surface, meta.location, meta.rooms, meta.bedrooms, meta.image, meta.description, meta.propertyType, meta.energyRating, meta.floor, meta.charges]
   )
-  res.status(201).json(rows[0])
+  const annonce = rows[0]
+  if (blocked) annonce.extraction_blocked = true
+  res.status(201).json(annonce)
 })
 
 // Add annonce manually

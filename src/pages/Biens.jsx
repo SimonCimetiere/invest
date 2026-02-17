@@ -125,6 +125,10 @@ function Biens() {
       setAnnonces(prev => [annonce, ...prev])
       setCommentCounts(prev => ({ ...prev, [annonce.id]: 0 }))
       setUrlInput('')
+      if (annonce.extraction_blocked) {
+        setUrlError('Ce site bloque l\'extraction automatique. Remplissez les infos manuellement ci-dessous.')
+        startEdit(annonce)
+      }
     } catch (err) {
       setUrlError("Impossible d'extraire les infos. Essayez l'ajout manuel.")
       console.error(err)

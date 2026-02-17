@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { apiFetch } from '../utils/api'
 import './Biens.css'
 
 const DPE_COLORS = {
@@ -28,7 +29,7 @@ function Biens() {
   const [editData, setEditData] = useState({})
 
   useEffect(() => {
-    fetch('/api/annonces')
+    apiFetch('/api/annonces')
       .then(r => r.json())
       .then(setAnnonces)
       .catch(err => console.error('Erreur chargement:', err))
@@ -41,7 +42,7 @@ function Biens() {
     setUrlLoading(true)
     setUrlError('')
     try {
-      const res = await fetch('/api/annonces/from-url', {
+      const res = await apiFetch('/api/annonces/from-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: urlInput.trim() }),
@@ -65,7 +66,7 @@ function Biens() {
   async function handleManualAdd(e) {
     e.preventDefault()
     try {
-      const res = await fetch('/api/annonces', {
+      const res = await apiFetch('/api/annonces', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

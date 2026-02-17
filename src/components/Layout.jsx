@@ -1,7 +1,10 @@
 import { NavLink, Outlet } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import './Layout.css'
 
 function Layout() {
+  const { user, logout } = useAuth()
+
   return (
     <div className="layout">
       <nav className="sidebar">
@@ -28,6 +31,10 @@ function Layout() {
             <NavLink to="/fiscalite">Fiscalité</NavLink>
           </li>
         </ul>
+        <div className="sidebar-footer">
+          <span className="sidebar-user">{user?.username}</span>
+          <button className="sidebar-logout" onClick={logout}>Deconnexion</button>
+        </div>
       </nav>
       <main className="content">
         <Outlet />

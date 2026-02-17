@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { apiFetch } from '../utils/api'
 import './Questionnaire.css'
 
 const sections = [
@@ -165,7 +166,7 @@ function Questionnaire() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    fetch('/api/questionnaires')
+    apiFetch('/api/questionnaires')
       .then(res => res.json())
       .then(rows => {
         if (rows.length > 0) {
@@ -194,7 +195,7 @@ function Questionnaire() {
           body: JSON.stringify({ data: formData, validated: true }),
         })
       } else {
-        const res = await fetch('/api/questionnaires', {
+        const res = await apiFetch('/api/questionnaires', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ data: formData, validated: true }),
@@ -224,7 +225,7 @@ function Questionnaire() {
           body: JSON.stringify({ data: formData, validated: false }),
         })
       } else {
-        const res = await fetch('/api/questionnaires', {
+        const res = await apiFetch('/api/questionnaires', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ data: formData, validated: false }),

@@ -1,4 +1,5 @@
 import pg from 'pg'
+import bcrypt from 'bcryptjs'
 
 const pool = new pg.Pool(
   process.env.DATABASE_URL
@@ -7,6 +8,29 @@ const pool = new pg.Pool(
 )
 
 export async function initDb() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS users (
+      id SERIAL PRIMARY KEY,
+      username VARCHAR(50) UNIQUE NOT NULL,
+      password_hash TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `)
+
+  // Seed users if table is empty
+  const { rows: existingUsers } = await pool.query('SELECT COUNT(*) FROM users')
+  if (parseInt(existingUsers[0].count, 10) === 0) {
+    const users = [
+      { name: process.env.USER1_NAME || 'simon', pass: process.env.USER1_PASS || 'simon123' },
+      { name: process.env.USER2_NAME || 'ami', pass: process.env.USER2_PASS || 'ami123' },
+    ]
+    for (const u of users) {
+      const hash = await bcrypt.hash(u.pass, 10)
+      await pool.query('INSERT INTO users (username, password_hash) VALUES ($1, $2)', [u.name, hash])
+    }
+    console.log('Seeded 2 users:', users.map(u => u.name).join(', '))
+  }
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS questionnaires (
       id SERIAL PRIMARY KEY,

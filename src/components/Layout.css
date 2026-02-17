@@ -9,6 +9,8 @@
   color: #e2e8f0;
   padding: 1.5rem 0;
   flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .sidebar-header {
@@ -45,6 +47,38 @@
 .nav-links li a.active {
   background-color: #2563eb;
   color: #ffffff;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #334155;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.sidebar-user {
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.sidebar-logout {
+  background: transparent;
+  border: 1px solid #475569;
+  color: #94a3b8;
+  padding: 0.3rem 0.7rem;
+  border-radius: 6px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.sidebar-logout:hover {
+  background: #334155;
+  color: #f1f5f9;
 }
 
 .content {

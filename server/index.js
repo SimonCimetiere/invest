@@ -2,13 +2,47 @@ import express from 'express'
 import cors from 'cors'
 import path from 'path'
 import { fileURLToPath } from 'url'
+import bcrypt from 'bcryptjs'
+import jwt from 'jsonwebtoken'
 import pool, { initDb } from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
+const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me'
 
 const app = express()
 app.use(cors())
 app.use(express.json())
+
+// ---- Auth ----
+
+app.post('/api/auth/login', async (req, res) => {
+  const { username, password } = req.body
+  if (!username || !password) return res.status(400).json({ error: 'Username and password required' })
+
+  const { rows } = await pool.query('SELECT * FROM users WHERE username = $1', [username])
+  if (rows.length === 0) return res.status(401).json({ error: 'Identifiants incorrects' })
+
+  const user = rows[0]
+  const valid = await bcrypt.compare(password, user.password_hash)
+  if (!valid) return res.status(401).json({ error: 'Identifiants incorrects' })
+
+  const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' })
+  res.json({ token, user: { id: user.id, username: user.username } })
+})
+
+// Auth middleware for all other /api routes
+app.use('/api', (req, res, next) => {
+  const auth = req.headers.authorization
+  if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ error: 'Token manquant' })
+
+  try {
+    const decoded = jwt.verify(auth.slice(7), JWT_SECRET)
+    req.user = decoded
+    next()
+  } catch {
+    return res.status(401).json({ error: 'Token invalide' })
+  }
+})
 
 // List all questionnaires
 app.get('/api/questionnaires', async (req, res) => {

@@ -319,6 +319,16 @@ app.delete('/api/annonces/:id', async (req, res) => {
 
 // ---- Comments ----
 
+// Get comment counts for all annonces
+app.get('/api/comments/counts', async (req, res) => {
+  const { rows } = await pool.query(
+    'SELECT annonce_id, COUNT(*)::int AS count FROM comments GROUP BY annonce_id'
+  )
+  const counts = {}
+  rows.forEach(r => { counts[r.annonce_id] = r.count })
+  res.json(counts)
+})
+
 // List comments for an annonce
 app.get('/api/annonces/:id/comments', async (req, res) => {
   const { rows } = await pool.query(

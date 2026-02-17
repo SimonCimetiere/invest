@@ -18,53 +18,6 @@ function Biens() {
   const [urlLoading, setUrlLoading] = useState(false)
   const [urlError, setUrlError] = useState('')
 
-  // Comments
-  const [openComments, setOpenComments] = useState({}) // { annonceId: comments[] }
-  const [commentInputs, setCommentInputs] = useState({}) // { annonceId: string }
-
-  async function toggleComments(annonceId) {
-    if (openComments[annonceId]) {
-      setOpenComments(prev => { const n = { ...prev }; delete n[annonceId]; return n })
-      return
-    }
-    try {
-      const res = await apiFetch(`/api/annonces/${annonceId}/comments`)
-      const comments = await res.json()
-      setOpenComments(prev => ({ ...prev, [annonceId]: comments }))
-    } catch (err) {
-      console.error('Erreur chargement commentaires:', err)
-    }
-  }
-
-  async function handleAddComment(annonceId) {
-    const content = (commentInputs[annonceId] || '').trim()
-    if (!content) return
-    try {
-      const res = await apiFetch(`/api/annonces/${annonceId}/comments`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
-      })
-      const comment = await res.json()
-      setOpenComments(prev => ({ ...prev, [annonceId]: [...(prev[annonceId] || []), comment] }))
-      setCommentInputs(prev => ({ ...prev, [annonceId]: '' }))
-    } catch (err) {
-      console.error('Erreur ajout commentaire:', err)
-    }
-  }
-
-  async function handleDeleteComment(annonceId, commentId) {
-    try {
-      await apiFetch(`/api/comments/${commentId}`, { method: 'DELETE' })
-      setOpenComments(prev => ({
-        ...prev,
-        [annonceId]: (prev[annonceId] || []).filter(c => c.id !== commentId),
-      }))
-    } catch (err) {
-      console.error('Erreur suppression commentaire:', err)
-    }
-  }
-
   // Manual form
   const [showManual, setShowManual] = useState(false)
   const [manual, setManual] = useState({
@@ -77,13 +30,80 @@ function Biens() {
   const [editingId, setEditingId] = useState(null)
   const [editData, setEditData] = useState({})
 
+  // Comments modal
+  const [commentsAnnonceId, setCommentsAnnonceId] = useState(null)
+  const [comments, setComments] = useState([])
+  const [commentsLoading, setCommentsLoading] = useState(false)
+  const [commentInput, setCommentInput] = useState('')
+  const [commentCounts, setCommentCounts] = useState({}) // { annonceId: count }
+
   useEffect(() => {
-    apiFetch('/api/annonces')
-      .then(r => r.json())
-      .then(setAnnonces)
+    Promise.all([
+      apiFetch('/api/annonces').then(r => r.json()),
+      apiFetch('/api/comments/counts').then(r => r.json()),
+    ])
+      .then(([data, counts]) => {
+        setAnnonces(data)
+        setCommentCounts(counts)
+      })
       .catch(err => console.error('Erreur chargement:', err))
       .finally(() => setLoading(false))
   }, [])
+
+  // ---- Comments ----
+
+  async function openCommentsModal(annonceId) {
+    setCommentsAnnonceId(annonceId)
+    setCommentInput('')
+    setCommentsLoading(true)
+    try {
+      const res = await apiFetch(`/api/annonces/${annonceId}/comments`)
+      const data = await res.json()
+      setComments(data)
+      setCommentCounts(prev => ({ ...prev, [annonceId]: data.length }))
+    } catch (err) {
+      console.error('Erreur chargement commentaires:', err)
+      setComments([])
+    } finally {
+      setCommentsLoading(false)
+    }
+  }
+
+  function closeCommentsModal() {
+    setCommentsAnnonceId(null)
+    setComments([])
+    setCommentInput('')
+  }
+
+  async function handleAddComment() {
+    const content = commentInput.trim()
+    if (!content || !commentsAnnonceId) return
+    try {
+      const res = await apiFetch(`/api/annonces/${commentsAnnonceId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+      })
+      const comment = await res.json()
+      setComments(prev => [...prev, comment])
+      setCommentCounts(prev => ({ ...prev, [commentsAnnonceId]: (prev[commentsAnnonceId] || 0) + 1 }))
+      setCommentInput('')
+    } catch (err) {
+      console.error('Erreur ajout commentaire:', err)
+    }
+  }
+
+  async function handleDeleteComment(commentId) {
+    try {
+      await apiFetch(`/api/comments/${commentId}`, { method: 'DELETE' })
+      setComments(prev => prev.filter(c => c.id !== commentId))
+      setCommentCounts(prev => ({ ...prev, [commentsAnnonceId]: Math.max(0, (prev[commentsAnnonceId] || 1) - 1) }))
+    } catch (err) {
+      console.error('Erreur suppression commentaire:', err)
+    }
+  }
+
+  // ---- URL / Manual / Edit ----
 
   async function handleAddByUrl(e) {
     e.preventDefault()
@@ -103,6 +123,7 @@ function Biens() {
       if (!res.ok) throw new Error('Erreur serveur')
       const annonce = await res.json()
       setAnnonces(prev => [annonce, ...prev])
+      setCommentCounts(prev => ({ ...prev, [annonce.id]: 0 }))
       setUrlInput('')
     } catch (err) {
       setUrlError("Impossible d'extraire les infos. Essayez l'ajout manuel.")
@@ -125,6 +146,7 @@ function Biens() {
       })
       const annonce = await res.json()
       setAnnonces(prev => [annonce, ...prev])
+      setCommentCounts(prev => ({ ...prev, [annonce.id]: 0 }))
       setManual({ title: '', price: '', surface: '', location: '', rooms: '', bedrooms: '', external_url: '', source: 'autre', description: '', property_type: '', energy_rating: '', floor: '', charges: '' })
       setShowManual(false)
     } catch (err) {
@@ -134,7 +156,7 @@ function Biens() {
 
   async function handleDismiss(id) {
     try {
-      await fetch(`/api/annonces/${id}/dismiss`, { method: 'PUT' })
+      await apiFetch(`/api/annonces/${id}/dismiss`, { method: 'PUT' })
       setAnnonces(prev => prev.filter(a => a.id !== id))
     } catch (err) {
       console.error('Erreur suppression:', err)
@@ -154,7 +176,7 @@ function Biens() {
   async function handleEditSave(e) {
     e.preventDefault()
     try {
-      const res = await fetch(`/api/annonces/${editingId}`, {
+      const res = await apiFetch(`/api/annonces/${editingId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -169,6 +191,8 @@ function Biens() {
       console.error('Erreur modification:', err)
     }
   }
+
+  const commentsAnnonce = annonces.find(a => a.id === commentsAnnonceId)
 
   return (
     <div className="biens">
@@ -272,6 +296,9 @@ function Biens() {
                 <div className="annonce-footer">
                   <span className="annonce-date">{new Date(ann.created_at).toLocaleDateString('fr-FR')}</span>
                   <div className="annonce-actions">
+                    <button onClick={() => openCommentsModal(ann.id)} className="btn btn-outline btn-sm">
+                      Commentaires{commentCounts[ann.id] > 0 && ` (${commentCounts[ann.id]})`}
+                    </button>
                     {ann.external_url && (
                       <a href={ann.external_url} target="_blank" rel="noopener noreferrer" className="btn btn-outline btn-sm">Voir</a>
                     )}
@@ -279,48 +306,6 @@ function Biens() {
                     <button onClick={() => handleDismiss(ann.id)} className="btn btn-danger btn-sm">Supprimer</button>
                   </div>
                 </div>
-
-                {/* Comments toggle */}
-                <button
-                  className="btn btn-outline btn-sm comments-toggle"
-                  onClick={() => toggleComments(ann.id)}
-                >
-                  {openComments[ann.id] ? 'Masquer les commentaires' : 'Commentaires'}
-                  {openComments[ann.id] && ` (${openComments[ann.id].length})`}
-                </button>
-
-                {openComments[ann.id] && (
-                  <div className="comments-section">
-                    {openComments[ann.id].length === 0 && (
-                      <p className="comments-empty">Aucun commentaire pour le moment.</p>
-                    )}
-                    <div className="comments-list">
-                      {openComments[ann.id].map(c => (
-                        <div key={c.id} className="comment">
-                          <div className="comment-header">
-                            <span className="comment-author">{c.username}</span>
-                            <span className="comment-date">{new Date(c.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
-                            {c.user_id === user?.id && (
-                              <button className="comment-delete" onClick={() => handleDeleteComment(ann.id, c.id)} title="Supprimer">&times;</button>
-                            )}
-                          </div>
-                          <p className="comment-content">{c.content}</p>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="comment-form">
-                      <input
-                        type="text"
-                        className="comment-input"
-                        placeholder="Ajouter un commentaire..."
-                        value={commentInputs[ann.id] || ''}
-                        onChange={e => setCommentInputs(prev => ({ ...prev, [ann.id]: e.target.value }))}
-                        onKeyDown={e => { if (e.key === 'Enter') handleAddComment(ann.id) }}
-                      />
-                      <button className="btn btn-primary btn-sm" onClick={() => handleAddComment(ann.id)} disabled={!(commentInputs[ann.id] || '').trim()}>Envoyer</button>
-                    </div>
-                  </div>
-                )}
               </div>
             </div>
           ))}
@@ -355,6 +340,57 @@ function Biens() {
                 <button type="submit" className="btn btn-primary">Enregistrer</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Comments modal */}
+      {commentsAnnonceId && (
+        <div className="modal-overlay" onClick={closeCommentsModal}>
+          <div className="modal comments-modal" onClick={e => e.stopPropagation()}>
+            <div className="comments-modal-header">
+              <h3>Commentaires</h3>
+              {commentsAnnonce && (
+                <p className="comments-modal-annonce">{commentsAnnonce.title || 'Sans titre'}</p>
+              )}
+              <button className="modal-close" onClick={closeCommentsModal}>&times;</button>
+            </div>
+
+            {commentsLoading ? (
+              <p>Chargement...</p>
+            ) : (
+              <>
+                <div className="comments-list">
+                  {comments.length === 0 && (
+                    <p className="comments-empty">Aucun commentaire pour le moment. Soyez le premier !</p>
+                  )}
+                  {comments.map(c => (
+                    <div key={c.id} className="comment">
+                      <div className="comment-header">
+                        <span className="comment-author">{c.username}</span>
+                        <span className="comment-date">{new Date(c.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                        {c.user_id === user?.id && (
+                          <button className="comment-delete" onClick={() => handleDeleteComment(c.id)} title="Supprimer">&times;</button>
+                        )}
+                      </div>
+                      <p className="comment-content">{c.content}</p>
+                    </div>
+                  ))}
+                </div>
+                <div className="comment-form">
+                  <input
+                    type="text"
+                    className="comment-input"
+                    placeholder="Ajouter un commentaire..."
+                    value={commentInput}
+                    onChange={e => setCommentInput(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') handleAddComment() }}
+                    autoFocus
+                  />
+                  <button className="btn btn-primary btn-sm" onClick={handleAddComment} disabled={!commentInput.trim()}>Envoyer</button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

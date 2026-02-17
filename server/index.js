@@ -1,7 +1,10 @@
 import express from 'express'
 import cors from 'cors'
-import { chromium } from 'playwright'
+import path from 'path'
+import { fileURLToPath } from 'url'
 import pool, { initDb } from './db.js'
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
 const app = express()
 app.use(cors())
@@ -61,87 +64,8 @@ app.delete('/api/questionnaires/:id', async (req, res) => {
 
 // ---- Annonces ----
 
-// Fetch HTML via Playwright (for sites that block server-side fetch)
-async function fetchWithPlaywright(url) {
-  const browser = await chromium.launch({
-    headless: false,
-    args: ['--disable-blink-features=AutomationControlled'],
-  })
-  try {
-    const ctx = await browser.newContext({
-      userAgent: 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      locale: 'fr-FR',
-      viewport: { width: 1366, height: 768 },
-    })
-    const page = await ctx.newPage()
-    await page.addInitScript(() => {
-      Object.defineProperty(navigator, 'webdriver', { get: () => false })
-    })
-    await page.goto(url, { waitUntil: 'domcontentloaded', timeout: 25000 })
-    await page.waitForTimeout(5000)
-    // Accept cookies if present
-    try {
-      const cookieBtn = page.locator('#didomi-notice-agree-button')
-      if (await cookieBtn.isVisible({ timeout: 2000 })) {
-        await cookieBtn.click()
-        await page.waitForTimeout(1000)
-      }
-    } catch {}
-    const html = await page.content()
-    return html
-  } finally {
-    await browser.close()
-  }
-}
-
-// Extract leboncoin data from __NEXT_DATA__
-function extractLeboncoinFromNextData(html) {
-  const nextMatch = html.match(/<script id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i)
-  if (!nextMatch) return null
-
-  let data
-  try { data = JSON.parse(nextMatch[1]) } catch { return null }
-  const ad = data?.props?.pageProps?.ad
-  if (!ad) return null
-
-  const attrs = ad.attributes || []
-  function getAttr(key) {
-    const a = attrs.find(a => a.key === key)
-    return a?.value_label || a?.value || null
-  }
-
-  const price = Array.isArray(ad.price) ? ad.price[0] : ad.price
-  const loc = ad.location || {}
-
-  return {
-    title: ad.subject || null,
-    description: ad.body || null,
-    image: ad.images?.urls?.[0] || (Array.isArray(ad.images) ? ad.images[0] : null),
-    price: price ? parseInt(String(price), 10) : null,
-    surface: getAttr('square') || null,
-    location: [loc.city_label || loc.city, loc.zipcode].filter(Boolean).join(' ') || null,
-    rooms: getAttr('rooms') ? getAttr('rooms') + (getAttr('rooms').includes('pièce') ? '' : ' pièces') : null,
-    bedrooms: getAttr('bedrooms') ? getAttr('bedrooms') + ' chambres' : null,
-    propertyType: getAttr('real_estate_type') || null,
-    energyRating: getAttr('energy_rate') || getAttr('ges') || null,
-    floor: getAttr('floor_number') ? getAttr('floor_number') + 'e étage' : null,
-    charges: getAttr('charges_included') === 'Oui' ? 'incluses' : null,
-    source: 'leboncoin',
-  }
-}
-
 // Extract metadata from a URL (og tags + structured data + patterns)
 async function extractMeta(url) {
-  // Leboncoin: use Playwright (blocks server-side fetch)
-  if (url.includes('leboncoin.fr')) {
-    console.log('[meta] Using Playwright for leboncoin URL')
-    const html = await fetchWithPlaywright(url)
-    const lbcData = extractLeboncoinFromNextData(html)
-    if (lbcData) return lbcData
-    // Fallback to HTML parsing below
-    return extractFromHtml(html, url)
-  }
-
   const res = await fetch(url, {
     headers: {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
@@ -351,7 +275,14 @@ app.delete('/api/annonces/:id', async (req, res) => {
   res.status(204).end()
 })
 
-const PORT = 3001
+// Serve static files in production
+const distPath = path.join(__dirname, '..', 'dist')
+app.use(express.static(distPath))
+app.get('*', (req, res) => {
+  res.sendFile(path.join(distPath, 'index.html'))
+})
+
+const PORT = process.env.PORT || 3001
 
 initDb().then(() => {
   app.listen(PORT, () => {

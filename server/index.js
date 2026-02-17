@@ -317,6 +317,37 @@ app.delete('/api/annonces/:id', async (req, res) => {
   res.status(204).end()
 })
 
+// ---- Comments ----
+
+// List comments for an annonce
+app.get('/api/annonces/:id/comments', async (req, res) => {
+  const { rows } = await pool.query(
+    'SELECT * FROM comments WHERE annonce_id = $1 ORDER BY created_at ASC',
+    [req.params.id]
+  )
+  res.json(rows)
+})
+
+// Add a comment
+app.post('/api/annonces/:id/comments', async (req, res) => {
+  const { content } = req.body
+  if (!content || !content.trim()) return res.status(400).json({ error: 'Contenu requis' })
+  const { rows } = await pool.query(
+    'INSERT INTO comments (annonce_id, user_id, username, content) VALUES ($1, $2, $3, $4) RETURNING *',
+    [req.params.id, req.user.id, req.user.username, content.trim()]
+  )
+  res.status(201).json(rows[0])
+})
+
+// Delete a comment (only by its author)
+app.delete('/api/comments/:id', async (req, res) => {
+  const { rows } = await pool.query('SELECT * FROM comments WHERE id = $1', [req.params.id])
+  if (rows.length === 0) return res.status(404).json({ error: 'Not found' })
+  if (rows[0].user_id !== req.user.id) return res.status(403).json({ error: 'Non autorise' })
+  await pool.query('DELETE FROM comments WHERE id = $1', [req.params.id])
+  res.status(204).end()
+})
+
 // JSON error handler for API routes
 app.use('/api', (err, req, res, next) => {
   console.error('API error:', err)

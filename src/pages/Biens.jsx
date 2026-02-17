@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useAuth } from '../contexts/AuthContext'
 import { apiFetch } from '../utils/api'
 import './Biens.css'
 
@@ -8,6 +9,7 @@ const DPE_COLORS = {
 }
 
 function Biens() {
+  const { user } = useAuth()
   const [annonces, setAnnonces] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -15,6 +17,53 @@ function Biens() {
   const [urlInput, setUrlInput] = useState('')
   const [urlLoading, setUrlLoading] = useState(false)
   const [urlError, setUrlError] = useState('')
+
+  // Comments
+  const [openComments, setOpenComments] = useState({}) // { annonceId: comments[] }
+  const [commentInputs, setCommentInputs] = useState({}) // { annonceId: string }
+
+  async function toggleComments(annonceId) {
+    if (openComments[annonceId]) {
+      setOpenComments(prev => { const n = { ...prev }; delete n[annonceId]; return n })
+      return
+    }
+    try {
+      const res = await apiFetch(`/api/annonces/${annonceId}/comments`)
+      const comments = await res.json()
+      setOpenComments(prev => ({ ...prev, [annonceId]: comments }))
+    } catch (err) {
+      console.error('Erreur chargement commentaires:', err)
+    }
+  }
+
+  async function handleAddComment(annonceId) {
+    const content = (commentInputs[annonceId] || '').trim()
+    if (!content) return
+    try {
+      const res = await apiFetch(`/api/annonces/${annonceId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+      })
+      const comment = await res.json()
+      setOpenComments(prev => ({ ...prev, [annonceId]: [...(prev[annonceId] || []), comment] }))
+      setCommentInputs(prev => ({ ...prev, [annonceId]: '' }))
+    } catch (err) {
+      console.error('Erreur ajout commentaire:', err)
+    }
+  }
+
+  async function handleDeleteComment(annonceId, commentId) {
+    try {
+      await apiFetch(`/api/comments/${commentId}`, { method: 'DELETE' })
+      setOpenComments(prev => ({
+        ...prev,
+        [annonceId]: (prev[annonceId] || []).filter(c => c.id !== commentId),
+      }))
+    } catch (err) {
+      console.error('Erreur suppression commentaire:', err)
+    }
+  }
 
   // Manual form
   const [showManual, setShowManual] = useState(false)
@@ -230,6 +279,48 @@ function Biens() {
                     <button onClick={() => handleDismiss(ann.id)} className="btn btn-danger btn-sm">Supprimer</button>
                   </div>
                 </div>
+
+                {/* Comments toggle */}
+                <button
+                  className="btn btn-outline btn-sm comments-toggle"
+                  onClick={() => toggleComments(ann.id)}
+                >
+                  {openComments[ann.id] ? 'Masquer les commentaires' : 'Commentaires'}
+                  {openComments[ann.id] && ` (${openComments[ann.id].length})`}
+                </button>
+
+                {openComments[ann.id] && (
+                  <div className="comments-section">
+                    {openComments[ann.id].length === 0 && (
+                      <p className="comments-empty">Aucun commentaire pour le moment.</p>
+                    )}
+                    <div className="comments-list">
+                      {openComments[ann.id].map(c => (
+                        <div key={c.id} className="comment">
+                          <div className="comment-header">
+                            <span className="comment-author">{c.username}</span>
+                            <span className="comment-date">{new Date(c.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
+                            {c.user_id === user?.id && (
+                              <button className="comment-delete" onClick={() => handleDeleteComment(ann.id, c.id)} title="Supprimer">&times;</button>
+                            )}
+                          </div>
+                          <p className="comment-content">{c.content}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="comment-form">
+                      <input
+                        type="text"
+                        className="comment-input"
+                        placeholder="Ajouter un commentaire..."
+                        value={commentInputs[ann.id] || ''}
+                        onChange={e => setCommentInputs(prev => ({ ...prev, [ann.id]: e.target.value }))}
+                        onKeyDown={e => { if (e.key === 'Enter') handleAddComment(ann.id) }}
+                      />
+                      <button className="btn btn-primary btn-sm" onClick={() => handleAddComment(ann.id)} disabled={!(commentInputs[ann.id] || '').trim()}>Envoyer</button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           ))}

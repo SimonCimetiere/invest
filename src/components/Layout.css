@@ -58,13 +58,60 @@
   gap: 0.5rem;
 }
 
+.sidebar-group-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
 .sidebar-group {
   font-size: 0.75rem;
-  color: #64748b;
+  color: #94a3b8;
   background: #334155;
-  padding: 0.2rem 0.5rem;
+  padding: 0.3rem 0.5rem;
   border-radius: 4px;
   text-align: center;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 0.2s;
+}
+
+.sidebar-group:hover {
+  background: #475569;
+  color: #f1f5f9;
+}
+
+.sidebar-invite-code {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #0f172a;
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  color: #94a3b8;
+}
+
+.sidebar-invite-code strong {
+  color: #60a5fa;
+  letter-spacing: 0.1em;
+}
+
+.sidebar-copy-btn {
+  background: transparent;
+  border: 1px solid #475569;
+  color: #94a3b8;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.65rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.sidebar-copy-btn:hover {
+  background: #334155;
+  color: #f1f5f9;
 }
 
 .sidebar-user-row {

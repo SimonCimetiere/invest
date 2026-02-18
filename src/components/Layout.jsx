@@ -6,12 +6,13 @@ import './Layout.css'
 
 function Layout() {
   const { user, logout } = useAuth()
-  const [groupName, setGroupName] = useState('')
+  const [group, setGroup] = useState(null)
+  const [showCode, setShowCode] = useState(false)
 
   useEffect(() => {
     apiFetch('/api/groups/mine')
       .then(r => r.json())
-      .then(g => { if (g?.name) setGroupName(g.name) })
+      .then(g => { if (g) setGroup(g) })
       .catch(() => {})
   }, [])
 
@@ -42,7 +43,19 @@ function Layout() {
           </li>
         </ul>
         <div className="sidebar-footer">
-          {groupName && <span className="sidebar-group">{groupName}</span>}
+          {group && (
+            <div className="sidebar-group-section">
+              <button className="sidebar-group" onClick={() => setShowCode(!showCode)} title="Voir le code d'invitation">
+                {group.name}
+              </button>
+              {showCode && (
+                <div className="sidebar-invite-code">
+                  <span>Code : <strong>{group.invite_code}</strong></span>
+                  <button className="sidebar-copy-btn" onClick={() => navigator.clipboard.writeText(group.invite_code)}>Copier</button>
+                </div>
+              )}
+            </div>
+          )}
           <div className="sidebar-user-row">
             {user?.avatar_url && <img className="sidebar-avatar" src={user.avatar_url} alt="" referrerPolicy="no-referrer" />}
             <span className="sidebar-user">{user?.name || user?.email}</span>

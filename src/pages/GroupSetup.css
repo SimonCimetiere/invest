@@ -1,0 +1,150 @@
+.group-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f1f5f9;
+  padding: 1rem;
+}
+
+.group-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 2.5rem 2rem;
+  width: 100%;
+  max-width: 440px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+  text-align: center;
+}
+
+.group-card h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+  color: #1e293b;
+}
+
+.group-subtitle {
+  color: #64748b;
+  font-size: 0.9rem;
+  margin: 0 0 1.5rem;
+}
+
+.group-tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 1.5rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.group-tab {
+  flex: 1;
+  padding: 0.6rem;
+  border: none;
+  background: #f8fafc;
+  color: #64748b;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.group-tab.active {
+  background: #2563eb;
+  color: #fff;
+}
+
+.group-field {
+  margin-bottom: 1rem;
+  text-align: left;
+}
+
+.group-field label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 500;
+  color: #475569;
+  margin-bottom: 0.3rem;
+}
+
+.group-field input {
+  width: 100%;
+  padding: 0.6rem 0.85rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  color: #1e293b;
+  background: #f8fafc;
+  box-sizing: border-box;
+}
+
+.group-field input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.group-btn {
+  width: 100%;
+  padding: 0.65rem;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 0.2s;
+}
+
+.group-btn:hover {
+  background: #1d4ed8;
+}
+
+.group-btn:disabled {
+  background: #93c5fd;
+  cursor: not-allowed;
+}
+
+.group-error {
+  color: #dc2626;
+  font-size: 0.85rem;
+  margin: 0.75rem 0 0;
+}
+
+.group-code-display {
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: 0.3em;
+  color: #2563eb;
+  background: #eff6ff;
+  border: 2px dashed #93c5fd;
+  border-radius: 12px;
+  padding: 1rem;
+  margin: 1.5rem 0;
+}
+
+.group-hint {
+  color: #94a3b8;
+  font-size: 0.8rem;
+  margin: 1rem 0 0;
+}
+
+.group-logout {
+  margin-top: 1.5rem;
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-family: inherit;
+  text-decoration: underline;
+}
+
+.group-logout:hover {
+  color: #64748b;
+}

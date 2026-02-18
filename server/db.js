@@ -68,6 +68,16 @@ export async function initDb() {
     )
   `)
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS groups (
+      id SERIAL PRIMARY KEY,
+      name TEXT NOT NULL,
+      invite_code TEXT UNIQUE NOT NULL,
+      owner_id INTEGER REFERENCES users(id),
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `)
+
   // Migrations for existing databases
   const cols = ['bedrooms', 'property_type', 'energy_rating', 'floor', 'charges', 'ref']
   for (const col of cols) {
@@ -82,6 +92,10 @@ export async function initDb() {
   await pool.query('ALTER TABLE users ALTER COLUMN username DROP NOT NULL').catch(() => {})
   // Add unique constraint on google_id if missing
   await pool.query('ALTER TABLE users ADD CONSTRAINT users_google_id_unique UNIQUE (google_id)').catch(() => {})
+  // Add group_id columns
+  await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES groups(id)').catch(() => {})
+  await pool.query('ALTER TABLE annonces ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES groups(id)').catch(() => {})
+  await pool.query('ALTER TABLE questionnaires ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES groups(id)').catch(() => {})
 }
 
 export default pool

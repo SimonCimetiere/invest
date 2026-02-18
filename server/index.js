@@ -15,6 +15,14 @@ const app = express()
 app.use(cors())
 app.use(express.json())
 
+function makeToken(user) {
+  return jwt.sign(
+    { id: user.id, name: user.name, email: user.email, avatar_url: user.avatar_url, group_id: user.group_id || null },
+    JWT_SECRET,
+    { expiresIn: '7d' }
+  )
+}
+
 // ---- Auth ----
 
 // Google Client ID (needed by frontend)
@@ -45,12 +53,8 @@ app.post('/api/auth/google', async (req, res) => {
     )
     const user = rows[0]
 
-    const token = jwt.sign(
-      { id: user.id, name: user.name, email: user.email, avatar_url: user.avatar_url },
-      JWT_SECRET,
-      { expiresIn: '7d' }
-    )
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, avatar_url: user.avatar_url } })
+    const token = makeToken(user)
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, avatar_url: user.avatar_url, group_id: user.group_id || null } })
   } catch (err) {
     console.error('Google auth error:', err.message || err)
     if (err.message?.includes('CONFLICT') || err.message?.includes('duplicate') || err.code === '23505') {
@@ -78,10 +82,75 @@ app.use('/api', (req, res, next) => {
   }
 })
 
+// ---- Groups ----
+
+function generateInviteCode() {
+  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'
+  let code = ''
+  for (let i = 0; i < 6; i++) code += chars[Math.floor(Math.random() * chars.length)]
+  return code
+}
+
+// Get current user's group
+app.get('/api/groups/mine', async (req, res) => {
+  if (!req.user.group_id) return res.json(null)
+  const { rows } = await pool.query('SELECT * FROM groups WHERE id = $1', [req.user.group_id])
+  res.json(rows[0] || null)
+})
+
+// Create a group
+app.post('/api/groups', async (req, res) => {
+  const { name } = req.body
+  if (!name || !name.trim()) return res.status(400).json({ error: 'Nom requis' })
+
+  let invite_code
+  for (let i = 0; i < 10; i++) {
+    invite_code = generateInviteCode()
+    const exists = await pool.query('SELECT id FROM groups WHERE invite_code = $1', [invite_code])
+    if (exists.rows.length === 0) break
+  }
+
+  const { rows } = await pool.query(
+    'INSERT INTO groups (name, invite_code, owner_id) VALUES ($1, $2, $3) RETURNING *',
+    [name.trim(), invite_code, req.user.id]
+  )
+  const group = rows[0]
+
+  await pool.query('UPDATE users SET group_id = $1 WHERE id = $2', [group.id, req.user.id])
+
+  const userRow = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id])
+  const token = makeToken(userRow.rows[0])
+  res.status(201).json({ group, token })
+})
+
+// Join a group by invite code
+app.post('/api/groups/join', async (req, res) => {
+  const { code } = req.body
+  if (!code || !code.trim()) return res.status(400).json({ error: 'Code requis' })
+
+  const { rows } = await pool.query('SELECT * FROM groups WHERE invite_code = $1', [code.trim().toUpperCase()])
+  if (rows.length === 0) return res.status(404).json({ error: 'Code de groupe invalide' })
+
+  const group = rows[0]
+  await pool.query('UPDATE users SET group_id = $1 WHERE id = $2', [group.id, req.user.id])
+
+  const userRow = await pool.query('SELECT * FROM users WHERE id = $1', [req.user.id])
+  const token = makeToken(userRow.rows[0])
+  res.json({ group, token })
+})
+
+// Middleware: require group_id for all data routes below
+app.use('/api', (req, res, next) => {
+  if (req.path.startsWith('/auth/') || req.path.startsWith('/groups')) return next()
+  if (!req.user.group_id) return res.status(403).json({ error: 'Vous devez rejoindre un groupe' })
+  next()
+})
+
 // List all questionnaires
 app.get('/api/questionnaires', async (req, res) => {
   const { rows } = await pool.query(
-    'SELECT * FROM questionnaires ORDER BY updated_at DESC'
+    'SELECT * FROM questionnaires WHERE group_id = $1 ORDER BY updated_at DESC',
+    [req.user.group_id]
   )
   res.json(rows)
 })
@@ -100,8 +169,8 @@ app.get('/api/questionnaires/:id', async (req, res) => {
 app.post('/api/questionnaires', async (req, res) => {
   const { data, validated } = req.body
   const { rows } = await pool.query(
-    'INSERT INTO questionnaires (data, validated) VALUES ($1, $2) RETURNING *',
-    [JSON.stringify(data), validated ?? false]
+    'INSERT INTO questionnaires (data, validated, group_id) VALUES ($1, $2, $3) RETURNING *',
+    [JSON.stringify(data), validated ?? false, req.user.group_id]
   )
   res.status(201).json(rows[0])
 })
@@ -112,9 +181,9 @@ app.put('/api/questionnaires/:id', async (req, res) => {
   const { rows } = await pool.query(
     `UPDATE questionnaires
      SET data = $1, validated = $2, updated_at = NOW()
-     WHERE id = $3
+     WHERE id = $3 AND group_id = $4
      RETURNING *`,
-    [JSON.stringify(data), validated ?? false, req.params.id]
+    [JSON.stringify(data), validated ?? false, req.params.id, req.user.group_id]
   )
   if (rows.length === 0) return res.status(404).json({ error: 'Not found' })
   res.json(rows[0])
@@ -123,8 +192,8 @@ app.put('/api/questionnaires/:id', async (req, res) => {
 // Delete a questionnaire
 app.delete('/api/questionnaires/:id', async (req, res) => {
   const { rowCount } = await pool.query(
-    'DELETE FROM questionnaires WHERE id = $1',
-    [req.params.id]
+    'DELETE FROM questionnaires WHERE id = $1 AND group_id = $2',
+    [req.params.id, req.user.group_id]
   )
   if (rowCount === 0) return res.status(404).json({ error: 'Not found' })
   res.status(204).end()
@@ -301,9 +370,9 @@ app.post('/api/annonces/from-url', async (req, res) => {
   }
 
   const { rows } = await pool.query(
-    `INSERT INTO annonces (source, external_url, title, price, surface, location, rooms, bedrooms, image_url, description, property_type, energy_rating, floor, charges)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
-    [meta.source, url, meta.title, meta.price, meta.surface, meta.location, meta.rooms, meta.bedrooms, meta.image, meta.description, meta.propertyType, meta.energyRating, meta.floor, meta.charges]
+    `INSERT INTO annonces (source, external_url, title, price, surface, location, rooms, bedrooms, image_url, description, property_type, energy_rating, floor, charges, group_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *`,
+    [meta.source, url, meta.title, meta.price, meta.surface, meta.location, meta.rooms, meta.bedrooms, meta.image, meta.description, meta.propertyType, meta.energyRating, meta.floor, meta.charges, req.user.group_id]
   )
   const annonce = rows[0]
   if (blocked) annonce.extraction_blocked = true
@@ -314,9 +383,9 @@ app.post('/api/annonces/from-url', async (req, res) => {
 app.post('/api/annonces', async (req, res) => {
   const b = req.body
   const { rows } = await pool.query(
-    `INSERT INTO annonces (source, external_url, title, price, surface, location, rooms, bedrooms, image_url, description, property_type, energy_rating, floor, charges)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14) RETURNING *`,
-    [b.source || 'autre', b.external_url || '', b.title || null, b.price || null, b.surface || null, b.location || null, b.rooms || null, b.bedrooms || null, b.image_url || null, b.description || null, b.property_type || null, b.energy_rating || null, b.floor || null, b.charges || null]
+    `INSERT INTO annonces (source, external_url, title, price, surface, location, rooms, bedrooms, image_url, description, property_type, energy_rating, floor, charges, group_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15) RETURNING *`,
+    [b.source || 'autre', b.external_url || '', b.title || null, b.price || null, b.surface || null, b.location || null, b.rooms || null, b.bedrooms || null, b.image_url || null, b.description || null, b.property_type || null, b.energy_rating || null, b.floor || null, b.charges || null, req.user.group_id]
   )
   res.status(201).json(rows[0])
 })
@@ -332,8 +401,8 @@ app.put('/api/annonces/:id', async (req, res) => {
      description = COALESCE($7, description), property_type = COALESCE($8, property_type),
      energy_rating = COALESCE($9, energy_rating), floor = COALESCE($10, floor),
      charges = COALESCE($11, charges)
-     WHERE id = $12 RETURNING *`,
-    [b.title, b.price, b.surface, b.location, b.rooms, b.bedrooms, b.description, b.property_type, b.energy_rating, b.floor, b.charges, req.params.id]
+     WHERE id = $12 AND group_id = $13 RETURNING *`,
+    [b.title, b.price, b.surface, b.location, b.rooms, b.bedrooms, b.description, b.property_type, b.energy_rating, b.floor, b.charges, req.params.id, req.user.group_id]
   )
   if (rows.length === 0) return res.status(404).json({ error: 'Not found' })
   res.json(rows[0])
@@ -342,7 +411,8 @@ app.put('/api/annonces/:id', async (req, res) => {
 // List all non-dismissed annonces
 app.get('/api/annonces', async (req, res) => {
   const { rows } = await pool.query(
-    'SELECT * FROM annonces WHERE dismissed = false ORDER BY created_at DESC'
+    'SELECT * FROM annonces WHERE dismissed = false AND group_id = $1 ORDER BY created_at DESC',
+    [req.user.group_id]
   )
   res.json(rows)
 })
@@ -350,8 +420,8 @@ app.get('/api/annonces', async (req, res) => {
 // Dismiss an annonce
 app.put('/api/annonces/:id/dismiss', async (req, res) => {
   const { rows } = await pool.query(
-    'UPDATE annonces SET dismissed = true WHERE id = $1 RETURNING *',
-    [req.params.id]
+    'UPDATE annonces SET dismissed = true WHERE id = $1 AND group_id = $2 RETURNING *',
+    [req.params.id, req.user.group_id]
   )
   if (rows.length === 0) return res.status(404).json({ error: 'Not found' })
   res.json(rows[0])
@@ -360,8 +430,8 @@ app.put('/api/annonces/:id/dismiss', async (req, res) => {
 // Delete an annonce
 app.delete('/api/annonces/:id', async (req, res) => {
   const { rowCount } = await pool.query(
-    'DELETE FROM annonces WHERE id = $1',
-    [req.params.id]
+    'DELETE FROM annonces WHERE id = $1 AND group_id = $2',
+    [req.params.id, req.user.group_id]
   )
   if (rowCount === 0) return res.status(404).json({ error: 'Not found' })
   res.status(204).end()

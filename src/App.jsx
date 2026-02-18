@@ -8,11 +8,13 @@ import Financement from './pages/Financement'
 import Fiscalite from './pages/Fiscalite'
 import Questionnaire from './pages/Questionnaire'
 import Login from './pages/Login'
+import GroupSetup from './pages/GroupSetup'
 
 function AppRoutes() {
   const { user } = useAuth()
 
   if (!user) return <Login />
+  if (!user.group_id) return <GroupSetup />
 
   return (
     <Routes>

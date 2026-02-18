@@ -18,3 +18,7 @@ services:
           property: connectionString
       - key: NODE_ENV
         value: production
+      - key: GOOGLE_CLIENT_ID
+        value: 344193004507-i46lhi52a46vm2nbgpaqkp39j0ak408f.apps.googleusercontent.com
+      - key: JWT_SECRET
+        generateValue: true

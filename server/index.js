@@ -52,8 +52,12 @@ app.post('/api/auth/google', async (req, res) => {
     )
     res.json({ token, user: { id: user.id, name: user.name, email: user.email, avatar_url: user.avatar_url } })
   } catch (err) {
-    console.error('Google auth error:', err)
-    res.status(401).json({ error: 'Token Google invalide' })
+    console.error('Google auth error:', err.message || err)
+    if (err.message?.includes('CONFLICT') || err.message?.includes('duplicate') || err.code === '23505') {
+      res.status(500).json({ error: 'Erreur base de donnees: ' + err.message })
+    } else {
+      res.status(401).json({ error: 'Token Google invalide: ' + (err.message || 'erreur inconnue') })
+    }
   }
 })
 

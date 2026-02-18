@@ -59,9 +59,19 @@
   gap: 0.5rem;
 }
 
+.sidebar-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
 .sidebar-user {
   font-size: 0.8rem;
   color: #94a3b8;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .sidebar-logout {

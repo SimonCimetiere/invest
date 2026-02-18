@@ -32,7 +32,8 @@ function Layout() {
           </li>
         </ul>
         <div className="sidebar-footer">
-          <span className="sidebar-user">{user?.username}</span>
+          {user?.avatar_url && <img className="sidebar-avatar" src={user.avatar_url} alt="" referrerPolicy="no-referrer" />}
+          <span className="sidebar-user">{user?.name || user?.email}</span>
           <button className="sidebar-logout" onClick={logout}>Deconnexion</button>
         </div>
       </nav>

@@ -1,5 +1,4 @@
 import pg from 'pg'
-import bcrypt from 'bcryptjs'
 
 const pool = new pg.Pool(
   process.env.DATABASE_URL
@@ -11,25 +10,13 @@ export async function initDb() {
   await pool.query(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
-      username VARCHAR(50) UNIQUE NOT NULL,
-      password_hash TEXT NOT NULL,
+      google_id TEXT UNIQUE NOT NULL,
+      email TEXT NOT NULL,
+      name TEXT,
+      avatar_url TEXT,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `)
-
-  // Seed users if table is empty
-  const { rows: existingUsers } = await pool.query('SELECT COUNT(*) FROM users')
-  if (parseInt(existingUsers[0].count, 10) === 0) {
-    const users = [
-      { name: process.env.USER1_NAME || 'simon', pass: process.env.USER1_PASS || 'simon123' },
-      { name: process.env.USER2_NAME || 'ami', pass: process.env.USER2_PASS || 'ami123' },
-    ]
-    for (const u of users) {
-      const hash = await bcrypt.hash(u.pass, 10)
-      await pool.query('INSERT INTO users (username, password_hash) VALUES ($1, $2)', [u.name, hash])
-    }
-    console.log('Seeded 2 users:', users.map(u => u.name).join(', '))
-  }
 
   await pool.query(`
     CREATE TABLE IF NOT EXISTS questionnaires (
@@ -74,18 +61,26 @@ export async function initDb() {
     CREATE TABLE IF NOT EXISTS comments (
       id SERIAL PRIMARY KEY,
       annonce_id INTEGER NOT NULL REFERENCES annonces(id) ON DELETE CASCADE,
-      user_id INTEGER NOT NULL REFERENCES users(id),
-      username VARCHAR(50) NOT NULL,
+      user_id INTEGER NOT NULL,
+      username VARCHAR(100) NOT NULL,
       content TEXT NOT NULL,
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `)
 
-  // Add missing columns to existing tables
-  const newCols = ['bedrooms', 'property_type', 'energy_rating', 'floor', 'charges', 'ref']
-  for (const col of newCols) {
+  // Migrations for existing databases
+  const cols = ['bedrooms', 'property_type', 'energy_rating', 'floor', 'charges', 'ref']
+  for (const col of cols) {
     await pool.query(`ALTER TABLE annonces ADD COLUMN IF NOT EXISTS ${col} TEXT`).catch(() => {})
   }
+  // Migrate users table if it has old schema
+  await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS google_id TEXT').catch(() => {})
+  await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS email TEXT').catch(() => {})
+  await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS name TEXT').catch(() => {})
+  await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT').catch(() => {})
+  await pool.query('ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL').catch(() => {})
+  // Add unique constraint on google_id if missing
+  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS users_google_id_idx ON users(google_id) WHERE google_id IS NOT NULL').catch(() => {})
 }
 
 export default pool

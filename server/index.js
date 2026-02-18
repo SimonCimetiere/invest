@@ -2,12 +2,14 @@ import express from 'express'
 import cors from 'cors'
 import path from 'path'
 import { fileURLToPath } from 'url'
-import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
+import { OAuth2Client } from 'google-auth-library'
 import pool, { initDb } from './db.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me'
+const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID
+const googleClient = GOOGLE_CLIENT_ID ? new OAuth2Client(GOOGLE_CLIENT_ID) : null
 
 const app = express()
 app.use(cors())
@@ -15,30 +17,50 @@ app.use(express.json())
 
 // ---- Auth ----
 
-app.post('/api/auth/login', async (req, res) => {
+// Google Client ID (needed by frontend)
+app.get('/api/auth/config', (req, res) => {
+  res.json({ googleClientId: GOOGLE_CLIENT_ID || null })
+})
+
+app.post('/api/auth/google', async (req, res) => {
   try {
-    const { username, password } = req.body
-    if (!username || !password) return res.status(400).json({ error: 'Username and password required' })
+    const { credential } = req.body
+    if (!credential) return res.status(400).json({ error: 'credential is required' })
+    if (!googleClient) return res.status(500).json({ error: 'GOOGLE_CLIENT_ID not configured' })
 
-    const { rows } = await pool.query('SELECT * FROM users WHERE username = $1', [username])
-    if (rows.length === 0) return res.status(401).json({ error: 'Identifiants incorrects' })
+    const ticket = await googleClient.verifyIdToken({
+      idToken: credential,
+      audience: GOOGLE_CLIENT_ID,
+    })
+    const payload = ticket.getPayload()
+    const { sub: googleId, email, name, picture } = payload
 
+    // Upsert user
+    const { rows } = await pool.query(
+      `INSERT INTO users (google_id, email, name, avatar_url)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (google_id) DO UPDATE SET email = $2, name = $3, avatar_url = $4
+       RETURNING *`,
+      [googleId, email, name || email, picture || null]
+    )
     const user = rows[0]
-    const valid = await bcrypt.compare(password, user.password_hash)
-    if (!valid) return res.status(401).json({ error: 'Identifiants incorrects' })
 
-    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '7d' })
-    res.json({ token, user: { id: user.id, username: user.username } })
+    const token = jwt.sign(
+      { id: user.id, name: user.name, email: user.email, avatar_url: user.avatar_url },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    )
+    res.json({ token, user: { id: user.id, name: user.name, email: user.email, avatar_url: user.avatar_url } })
   } catch (err) {
-    console.error('Login error:', err)
-    res.status(500).json({ error: 'Erreur serveur' })
+    console.error('Google auth error:', err)
+    res.status(401).json({ error: 'Token Google invalide' })
   }
 })
 
 // Auth middleware for all other /api routes
 app.use('/api', (req, res, next) => {
-  // Skip auth for login route
-  if (req.path === '/auth/login') return next()
+  // Skip auth for public routes
+  if (req.path === '/auth/google' || req.path === '/auth/config') return next()
 
   const auth = req.headers.authorization
   if (!auth || !auth.startsWith('Bearer ')) return res.status(401).json({ error: 'Token manquant' })
@@ -368,7 +390,7 @@ app.post('/api/annonces/:id/comments', async (req, res) => {
   if (!content || !content.trim()) return res.status(400).json({ error: 'Contenu requis' })
   const { rows } = await pool.query(
     'INSERT INTO comments (annonce_id, user_id, username, content) VALUES ($1, $2, $3, $4) RETURNING *',
-    [req.params.id, req.user.id, req.user.username, content.trim()]
+    [req.params.id, req.user.id, req.user.name, content.trim()]
   )
   res.status(201).json(rows[0])
 })

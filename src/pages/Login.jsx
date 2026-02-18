@@ -1,62 +1,60 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import './Login.css'
 
 function Login() {
-  const { login } = useAuth()
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
+  const { loginWithGoogle } = useAuth()
+  const googleBtnRef = useRef(null)
   const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [clientId, setClientId] = useState(null)
+  const [loading, setLoading] = useState(true)
 
-  async function handleSubmit(e) {
-    e.preventDefault()
-    if (!username.trim() || !password) return
-    setLoading(true)
-    setError('')
-    try {
-      await login(username.trim(), password)
-    } catch (err) {
-      setError(err.message)
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Fetch Google Client ID from server
+  useEffect(() => {
+    fetch('/api/auth/config')
+      .then(r => r.json())
+      .then(data => setClientId(data.googleClientId))
+      .catch(() => setError('Impossible de charger la configuration'))
+      .finally(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    if (!clientId || !window.google?.accounts) return
+
+    window.google.accounts.id.initialize({
+      client_id: clientId,
+      callback: async (response) => {
+        setError('')
+        try {
+          await loginWithGoogle(response.credential)
+        } catch (err) {
+          setError(err.message)
+        }
+      },
+    })
+
+    window.google.accounts.id.renderButton(googleBtnRef.current, {
+      theme: 'outline',
+      size: 'large',
+      width: 320,
+      text: 'signin_with',
+      locale: 'fr',
+    })
+  }, [clientId, loginWithGoogle])
 
   return (
     <div className="login-page">
       <div className="login-card">
         <h1>Investissement Locatif</h1>
         <p className="login-subtitle">Connectez-vous pour acceder a votre espace</p>
-        <form onSubmit={handleSubmit}>
-          <div className="login-field">
-            <label htmlFor="username">Identifiant</label>
-            <input
-              id="username"
-              type="text"
-              value={username}
-              onChange={e => setUsername(e.target.value)}
-              autoComplete="username"
-              autoFocus
-              disabled={loading}
-            />
-          </div>
-          <div className="login-field">
-            <label htmlFor="password">Mot de passe</label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              autoComplete="current-password"
-              disabled={loading}
-            />
-          </div>
-          {error && <p className="login-error">{error}</p>}
-          <button type="submit" className="login-btn" disabled={loading || !username.trim() || !password}>
-            {loading ? 'Connexion...' : 'Se connecter'}
-          </button>
-        </form>
+        {loading ? (
+          <p className="login-loading">Chargement...</p>
+        ) : !clientId ? (
+          <p className="login-error">Google Sign-In non configure (GOOGLE_CLIENT_ID manquant)</p>
+        ) : (
+          <div className="google-btn-wrapper" ref={googleBtnRef}></div>
+        )}
+        {error && <p className="login-error">{error}</p>}
       </div>
     </div>
   )

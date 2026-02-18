@@ -14,7 +14,7 @@ export function AuthProvider({ children }) {
         if (payload.exp * 1000 < Date.now()) {
           logout()
         } else {
-          setUser({ id: payload.id, username: payload.username })
+          setUser({ id: payload.id, name: payload.name, email: payload.email, avatar_url: payload.avatar_url })
         }
       } catch {
         logout()
@@ -23,11 +23,11 @@ export function AuthProvider({ children }) {
     setLoading(false)
   }, [token])
 
-  async function login(username, password) {
-    const res = await fetch('/api/auth/login', {
+  async function loginWithGoogle(credential) {
+    const res = await fetch('/api/auth/google', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password }),
+      body: JSON.stringify({ credential }),
     })
     if (!res.ok) {
       const err = await res.json()
@@ -48,7 +48,7 @@ export function AuthProvider({ children }) {
   if (loading) return null
 
   return (
-    <AuthContext.Provider value={{ user, token, login, logout }}>
+    <AuthContext.Provider value={{ user, token, loginWithGoogle, logout }}>
       {children}
     </AuthContext.Provider>
   )

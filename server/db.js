@@ -80,7 +80,7 @@ export async function initDb() {
   await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT').catch(() => {})
   await pool.query('ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL').catch(() => {})
   // Add unique constraint on google_id if missing
-  await pool.query('CREATE UNIQUE INDEX IF NOT EXISTS users_google_id_idx ON users(google_id) WHERE google_id IS NOT NULL').catch(() => {})
+  await pool.query('ALTER TABLE users ADD CONSTRAINT users_google_id_unique UNIQUE (google_id)').catch(() => {})
 }
 
 export default pool

@@ -99,6 +99,9 @@ export async function initDb() {
   // Add group_id columns
   await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES groups(id)').catch(() => {})
   await pool.query('ALTER TABLE annonces ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES groups(id)').catch(() => {})
+  // Patrimoine lease columns
+  await pool.query('ALTER TABLE patrimoine ADD COLUMN IF NOT EXISTS lease_start_date DATE').catch(() => {})
+  await pool.query('ALTER TABLE patrimoine ADD COLUMN IF NOT EXISTS lease_duration_months INTEGER').catch(() => {})
 }
 
 export default pool

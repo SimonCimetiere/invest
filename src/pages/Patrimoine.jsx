@@ -4,7 +4,8 @@ import './Patrimoine.css'
 
 const emptyForm = {
   title: '', address: '', purchase_price: '', is_rented: false,
-  monthly_rent: '', credit_amount: '', credit_rate: '', credit_duration_months: '',
+  monthly_rent: '', lease_start_date: '', lease_duration_months: '',
+  credit_amount: '', credit_rate: '', credit_duration_months: '',
 }
 
 function calcMensualite(amount, ratePercent, months) {
@@ -16,6 +17,13 @@ function calcMensualite(amount, ratePercent, months) {
 function formatPrice(n) {
   if (!n) return '--'
   return Number(n).toLocaleString('fr-FR') + ' €'
+}
+
+function calcLeaseEnd(startDate, durationMonths) {
+  if (!startDate || !durationMonths) return null
+  const d = new Date(startDate)
+  d.setMonth(d.getMonth() + parseInt(durationMonths))
+  return d
 }
 
 function Patrimoine() {
@@ -43,6 +51,8 @@ function Patrimoine() {
         ...form,
         purchase_price: parseInt(form.purchase_price) || null,
         monthly_rent: parseInt(form.monthly_rent) || null,
+        lease_start_date: form.lease_start_date || null,
+        lease_duration_months: parseInt(form.lease_duration_months) || null,
         credit_amount: parseInt(form.credit_amount) || null,
         credit_rate: parseFloat(form.credit_rate) || null,
         credit_duration_months: parseInt(form.credit_duration_months) || null,
@@ -64,6 +74,8 @@ function Patrimoine() {
       purchase_price: bien.purchase_price || '',
       is_rented: bien.is_rented || false,
       monthly_rent: bien.monthly_rent || '',
+      lease_start_date: bien.lease_start_date ? bien.lease_start_date.slice(0, 10) : '',
+      lease_duration_months: bien.lease_duration_months || '',
       credit_amount: bien.credit_amount || '',
       credit_rate: bien.credit_rate || '',
       credit_duration_months: bien.credit_duration_months || '',
@@ -79,6 +91,8 @@ function Patrimoine() {
         ...editData,
         purchase_price: parseInt(editData.purchase_price) || null,
         monthly_rent: parseInt(editData.monthly_rent) || null,
+        lease_start_date: editData.lease_start_date || null,
+        lease_duration_months: parseInt(editData.lease_duration_months) || null,
         credit_amount: parseInt(editData.credit_amount) || null,
         credit_rate: parseFloat(editData.credit_rate) || null,
         credit_duration_months: parseInt(editData.credit_duration_months) || null,
@@ -120,10 +134,20 @@ function Patrimoine() {
             </label>
           </div>
           {data.is_rented && (
-            <div className="field">
-              <label>Loyer mensuel (€)</label>
-              <input type="number" value={data.monthly_rent} onChange={e => setData(p => ({ ...p, monthly_rent: e.target.value }))} />
-            </div>
+            <>
+              <div className="field">
+                <label>Loyer mensuel (€)</label>
+                <input type="number" value={data.monthly_rent} onChange={e => setData(p => ({ ...p, monthly_rent: e.target.value }))} />
+              </div>
+              <div className="field">
+                <label>Date de debut du bail</label>
+                <input type="date" value={data.lease_start_date} onChange={e => setData(p => ({ ...p, lease_start_date: e.target.value }))} />
+              </div>
+              <div className="field">
+                <label>Duree du bail (mois)</label>
+                <input type="number" value={data.lease_duration_months} onChange={e => setData(p => ({ ...p, lease_duration_months: e.target.value }))} />
+              </div>
+            </>
           )}
           <div className="field">
             <label>Montant du crédit (€)</label>
@@ -174,6 +198,7 @@ function Patrimoine() {
                 <th>Prix d'achat</th>
                 <th>Statut</th>
                 <th>Loyer</th>
+                <th>Fin de bail</th>
                 <th>Credit</th>
                 <th>Mensualite</th>
                 <th>Actions</th>
@@ -193,6 +218,12 @@ function Patrimoine() {
                       </span>
                     </td>
                     <td className="patrimoine-cell-rent">{bien.is_rented ? formatPrice(bien.monthly_rent) : '--'}</td>
+                    <td className="patrimoine-cell-lease">{(() => {
+                      const end = calcLeaseEnd(bien.lease_start_date, bien.lease_duration_months)
+                      if (!end) return '--'
+                      const isExpired = end < new Date()
+                      return <span className={isExpired ? 'lease-expired' : ''}>{end.toLocaleDateString('fr-FR')}</span>
+                    })()}</td>
                     <td className="patrimoine-cell-credit">
                       {bien.credit_amount ? (
                         <>{formatPrice(bien.credit_amount)}<br /><span className="patrimoine-credit-info">{bien.credit_rate}% / {bien.credit_duration_months} mois</span></>

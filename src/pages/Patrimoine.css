@@ -156,6 +156,15 @@
   color: #2563eb;
 }
 
+.patrimoine-cell-lease {
+  white-space: nowrap;
+}
+
+.lease-expired {
+  color: #dc2626;
+  font-weight: 600;
+}
+
 .patrimoine-cell-actions {
   white-space: nowrap;
   display: flex;

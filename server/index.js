@@ -491,9 +491,9 @@ app.post('/api/patrimoine', async (req, res) => {
   const b = req.body
   if (!b.title || !b.title.trim()) return res.status(400).json({ error: 'Titre requis' })
   const { rows } = await pool.query(
-    `INSERT INTO patrimoine (title, address, purchase_price, is_rented, monthly_rent, credit_amount, credit_rate, credit_duration_months, group_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-    [b.title.trim(), b.address || null, b.purchase_price || null, b.is_rented || false, b.monthly_rent || null, b.credit_amount || null, b.credit_rate || null, b.credit_duration_months || null, req.user.group_id]
+    `INSERT INTO patrimoine (title, address, purchase_price, is_rented, monthly_rent, credit_amount, credit_rate, credit_duration_months, lease_start_date, lease_duration_months, group_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
+    [b.title.trim(), b.address || null, b.purchase_price || null, b.is_rented || false, b.monthly_rent || null, b.credit_amount || null, b.credit_rate || null, b.credit_duration_months || null, b.lease_start_date || null, b.lease_duration_months || null, req.user.group_id]
   )
   res.status(201).json(rows[0])
 })
@@ -505,9 +505,10 @@ app.put('/api/patrimoine/:id', async (req, res) => {
     `UPDATE patrimoine SET
      title = COALESCE($1, title), address = COALESCE($2, address),
      purchase_price = $3, is_rented = $4, monthly_rent = $5,
-     credit_amount = $6, credit_rate = $7, credit_duration_months = $8
-     WHERE id = $9 AND group_id = $10 RETURNING *`,
-    [b.title, b.address, b.purchase_price || null, b.is_rented || false, b.monthly_rent || null, b.credit_amount || null, b.credit_rate || null, b.credit_duration_months || null, req.params.id, req.user.group_id]
+     credit_amount = $6, credit_rate = $7, credit_duration_months = $8,
+     lease_start_date = $9, lease_duration_months = $10
+     WHERE id = $11 AND group_id = $12 RETURNING *`,
+    [b.title, b.address, b.purchase_price || null, b.is_rented || false, b.monthly_rent || null, b.credit_amount || null, b.credit_rate || null, b.credit_duration_months || null, b.lease_start_date || null, b.lease_duration_months || null, req.params.id, req.user.group_id]
   )
   if (rows.length === 0) return res.status(404).json({ error: 'Not found' })
   res.json(rows[0])

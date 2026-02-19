@@ -102,6 +102,21 @@
   white-space: nowrap;
 }
 
+.patrimoine-th-sortable {
+  cursor: pointer;
+  user-select: none;
+  transition: color 0.2s;
+}
+
+.patrimoine-th-sortable:hover {
+  color: #1e293b;
+}
+
+.sort-arrow {
+  font-size: 0.65rem;
+  color: #2563eb;
+}
+
 .patrimoine-table td {
   padding: 0.75rem 1rem;
   border-bottom: 1px solid #f1f5f9;
@@ -163,6 +178,14 @@
 .lease-expired {
   color: #dc2626;
   font-weight: 600;
+}
+
+.lease-warning {
+  color: #d97706;
+  font-weight: 600;
+  background: #fef3c7;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
 }
 
 .patrimoine-cell-actions {

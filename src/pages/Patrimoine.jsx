@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { apiFetch } from '../utils/api'
 import './Patrimoine.css'
 
@@ -26,6 +26,32 @@ function calcLeaseEnd(startDate, durationMonths) {
   return d
 }
 
+const TWO_MONTHS_MS = 2 * 30 * 24 * 60 * 60 * 1000
+
+const COLUMNS = [
+  { key: 'title', label: 'Bien' },
+  { key: 'address', label: 'Adresse' },
+  { key: 'purchase_price', label: "Prix d'achat" },
+  { key: 'is_rented', label: 'Statut' },
+  { key: 'monthly_rent', label: 'Loyer' },
+  { key: 'lease_end', label: 'Fin de bail' },
+  { key: 'credit_amount', label: 'Credit' },
+  { key: 'mensualite', label: 'Mensualite' },
+]
+
+function getSortValue(bien, key) {
+  if (key === 'lease_end') {
+    const end = calcLeaseEnd(bien.lease_start_date, bien.lease_duration_months)
+    return end ? end.getTime() : 0
+  }
+  if (key === 'mensualite') {
+    return calcMensualite(bien.credit_amount, parseFloat(bien.credit_rate), bien.credit_duration_months) || 0
+  }
+  const v = bien[key]
+  if (v == null) return typeof v === 'string' ? '' : 0
+  return v
+}
+
 function Patrimoine() {
   const [biens, setBiens] = useState([])
   const [loading, setLoading] = useState(true)
@@ -33,6 +59,8 @@ function Patrimoine() {
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [editData, setEditData] = useState(emptyForm)
+  const [sortKey, setSortKey] = useState(null)
+  const [sortDir, setSortDir] = useState('asc')
 
   useEffect(() => {
     apiFetch('/api/patrimoine')
@@ -41,6 +69,30 @@ function Patrimoine() {
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
+
+  function handleSort(key) {
+    if (sortKey === key) {
+      setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
+
+  const sortedBiens = useMemo(() => {
+    if (!sortKey) return biens
+    return [...biens].sort((a, b) => {
+      const va = getSortValue(a, sortKey)
+      const vb = getSortValue(b, sortKey)
+      let cmp = 0
+      if (typeof va === 'string' && typeof vb === 'string') {
+        cmp = va.localeCompare(vb, 'fr')
+      } else {
+        cmp = (va > vb ? 1 : va < vb ? -1 : 0)
+      }
+      return sortDir === 'desc' ? -cmp : cmp
+    })
+  }, [biens, sortKey, sortDir])
 
   async function handleAdd(e) {
     e.preventDefault()
@@ -171,6 +223,8 @@ function Patrimoine() {
 
   if (loading) return <div className="patrimoine"><p>Chargement...</p></div>
 
+  const now = new Date()
+
   return (
     <div className="patrimoine">
       <h1>Patrimoine</h1>
@@ -193,20 +247,21 @@ function Patrimoine() {
           <table className="patrimoine-table">
             <thead>
               <tr>
-                <th>Bien</th>
-                <th>Adresse</th>
-                <th>Prix d'achat</th>
-                <th>Statut</th>
-                <th>Loyer</th>
-                <th>Fin de bail</th>
-                <th>Credit</th>
-                <th>Mensualite</th>
+                {COLUMNS.map(col => (
+                  <th key={col.key} className="patrimoine-th-sortable" onClick={() => handleSort(col.key)}>
+                    {col.label}
+                    {sortKey === col.key && <span className="sort-arrow">{sortDir === 'asc' ? ' \u25B2' : ' \u25BC'}</span>}
+                  </th>
+                ))}
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {biens.map(bien => {
+              {sortedBiens.map(bien => {
                 const mensualite = calcMensualite(bien.credit_amount, parseFloat(bien.credit_rate), bien.credit_duration_months)
+                const leaseEnd = calcLeaseEnd(bien.lease_start_date, bien.lease_duration_months)
+                const isExpired = leaseEnd && leaseEnd < now
+                const isExpiringSoon = leaseEnd && !isExpired && (leaseEnd.getTime() - now.getTime()) < TWO_MONTHS_MS
                 return (
                   <tr key={bien.id}>
                     <td className="patrimoine-cell-title">{bien.title}</td>
@@ -218,12 +273,13 @@ function Patrimoine() {
                       </span>
                     </td>
                     <td className="patrimoine-cell-rent">{bien.is_rented ? formatPrice(bien.monthly_rent) : '--'}</td>
-                    <td className="patrimoine-cell-lease">{(() => {
-                      const end = calcLeaseEnd(bien.lease_start_date, bien.lease_duration_months)
-                      if (!end) return '--'
-                      const isExpired = end < new Date()
-                      return <span className={isExpired ? 'lease-expired' : ''}>{end.toLocaleDateString('fr-FR')}</span>
-                    })()}</td>
+                    <td className="patrimoine-cell-lease">
+                      {leaseEnd ? (
+                        <span className={isExpired ? 'lease-expired' : isExpiringSoon ? 'lease-warning' : ''}>
+                          {leaseEnd.toLocaleDateString('fr-FR')}
+                        </span>
+                      ) : '--'}
+                    </td>
                     <td className="patrimoine-cell-credit">
                       {bien.credit_amount ? (
                         <>{formatPrice(bien.credit_amount)}<br /><span className="patrimoine-credit-info">{bien.credit_rate}% / {bien.credit_duration_months} mois</span></>

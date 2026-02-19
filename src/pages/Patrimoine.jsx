@@ -165,54 +165,49 @@ function Patrimoine() {
       {biens.length === 0 ? (
         <p className="empty-state">Aucun bien dans votre patrimoine.</p>
       ) : (
-        <div className="patrimoine-cards">
-          {biens.map(bien => {
-            const mensualite = calcMensualite(bien.credit_amount, parseFloat(bien.credit_rate), bien.credit_duration_months)
-            return (
-              <div key={bien.id} className="patrimoine-card">
-                <div className="patrimoine-card-header">
-                  <h3 className="patrimoine-card-title">{bien.title}</h3>
-                  <span className={`patrimoine-status ${bien.is_rented ? 'status-rented' : 'status-vacant'}`}>
-                    {bien.is_rented ? 'Loué' : 'Vacant'}
-                  </span>
-                </div>
-
-                {bien.address && <p className="patrimoine-card-address">{bien.address}</p>}
-
-                <div className="patrimoine-card-metrics">
-                  <div className="patrimoine-metric">
-                    <span className="patrimoine-metric-label">Prix d'achat</span>
-                    <span className="patrimoine-metric-value">{formatPrice(bien.purchase_price)}</span>
-                  </div>
-                  {bien.is_rented && (
-                    <div className="patrimoine-metric">
-                      <span className="patrimoine-metric-label">Loyer mensuel</span>
-                      <span className="patrimoine-metric-value patrimoine-metric-rent">{formatPrice(bien.monthly_rent)}</span>
-                    </div>
-                  )}
-                </div>
-
-                {bien.credit_amount && (
-                  <div className="patrimoine-card-credit">
-                    <span className="patrimoine-credit-title">Crédit</span>
-                    <div className="patrimoine-credit-details">
-                      <span>{formatPrice(bien.credit_amount)}</span>
-                      <span>{bien.credit_rate}% sur {bien.credit_duration_months} mois</span>
-                      {mensualite && <span className="patrimoine-mensualite">Mensualité : <strong>{formatPrice(mensualite)}</strong></span>}
-                    </div>
-                  </div>
-                )}
-
-                <div className="patrimoine-card-footer">
-                  <span className="patrimoine-date">{new Date(bien.created_at).toLocaleDateString('fr-FR')}</span>
-                  <div className="patrimoine-actions">
-                    <button className="btn btn-sm btn-outline" onClick={() => openEdit(bien)}>Modifier</button>
-                    <button className="btn btn-sm btn-danger" onClick={() => handleDelete(bien.id)}>Supprimer</button>
-                  </div>
-                </div>
-              </div>
-            )
-          })}
+        <div className="patrimoine-table-wrapper">
+          <table className="patrimoine-table">
+            <thead>
+              <tr>
+                <th>Bien</th>
+                <th>Adresse</th>
+                <th>Prix d'achat</th>
+                <th>Statut</th>
+                <th>Loyer</th>
+                <th>Credit</th>
+                <th>Mensualite</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {biens.map(bien => {
+                const mensualite = calcMensualite(bien.credit_amount, parseFloat(bien.credit_rate), bien.credit_duration_months)
+                return (
+                  <tr key={bien.id}>
+                    <td className="patrimoine-cell-title">{bien.title}</td>
+                    <td className="patrimoine-cell-address">{bien.address || '--'}</td>
+                    <td className="patrimoine-cell-price">{formatPrice(bien.purchase_price)}</td>
+                    <td>
+                      <span className={`patrimoine-status ${bien.is_rented ? 'status-rented' : 'status-vacant'}`}>
+                        {bien.is_rented ? 'Loue' : 'Vacant'}
+                      </span>
+                    </td>
+                    <td className="patrimoine-cell-rent">{bien.is_rented ? formatPrice(bien.monthly_rent) : '--'}</td>
+                    <td className="patrimoine-cell-credit">
+                      {bien.credit_amount ? (
+                        <>{formatPrice(bien.credit_amount)}<br /><span className="patrimoine-credit-info">{bien.credit_rate}% / {bien.credit_duration_months} mois</span></>
+                      ) : '--'}
+                    </td>
+                    <td className="patrimoine-cell-mensualite">{mensualite ? formatPrice(mensualite) : '--'}</td>
+                    <td className="patrimoine-cell-actions">
+                      <button className="btn btn-sm btn-outline" onClick={() => openEdit(bien)}>Modifier</button>
+                      <button className="btn btn-sm btn-danger" onClick={() => handleDelete(bien.id)}>Supprimer</button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
         </div>
       )}
 

@@ -7,15 +7,20 @@ function Equipe() {
   const { user } = useAuth()
   const [members, setMembers] = useState([])
   const [ownerId, setOwnerId] = useState(null)
+  const [inviteCode, setInviteCode] = useState(null)
   const [loading, setLoading] = useState(true)
   const [removing, setRemoving] = useState(null)
+  const [resetting, setResetting] = useState(false)
 
   useEffect(() => {
-    apiFetch('/api/groups/members')
-      .then(r => r.json())
-      .then(data => {
+    Promise.all([
+      apiFetch('/api/groups/members').then(r => r.json()),
+      apiFetch('/api/groups/mine').then(r => r.json()),
+    ])
+      .then(([data, group]) => {
         setMembers(data.members)
         setOwnerId(data.owner_id)
+        if (group) setInviteCode(group.invite_code)
       })
       .catch(() => {})
       .finally(() => setLoading(false))
@@ -41,12 +46,48 @@ function Equipe() {
     }
   }
 
+  async function handleResetCode() {
+    if (!confirm('Voulez-vous vraiment réinitialiser le code d\'invitation ? L\'ancien code ne fonctionnera plus.')) return
+    setResetting(true)
+    try {
+      const res = await apiFetch('/api/groups/reset-invite', { method: 'POST' })
+      if (res.ok) {
+        const group = await res.json()
+        setInviteCode(group.invite_code)
+      } else {
+        const err = await res.json()
+        alert(err.error || 'Erreur')
+      }
+    } catch {
+      alert('Erreur réseau')
+    } finally {
+      setResetting(false)
+    }
+  }
+
   if (loading) return <div className="equipe"><p>Chargement...</p></div>
 
   return (
     <div className="equipe">
       <h1>Équipe</h1>
       <p className="equipe-count">{members.length} membre{members.length > 1 ? 's' : ''}</p>
+
+      {isAdmin && inviteCode && (
+        <div className="equipe-invite-section">
+          <div className="equipe-invite-row">
+            <span className="equipe-invite-label">Code d'invitation :</span>
+            <span className="equipe-invite-code">{inviteCode}</span>
+            <button className="equipe-invite-copy" onClick={() => navigator.clipboard.writeText(inviteCode)}>Copier</button>
+          </div>
+          <button
+            className="equipe-reset-btn"
+            onClick={handleResetCode}
+            disabled={resetting}
+          >
+            {resetting ? 'Réinitialisation...' : 'Réinitialiser le code'}
+          </button>
+        </div>
+      )}
       <div className="equipe-list">
         {members.map(member => (
           <div key={member.id} className="equipe-card">

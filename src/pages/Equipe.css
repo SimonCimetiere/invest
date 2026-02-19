@@ -9,6 +9,76 @@
   font-size: 0.9rem;
 }
 
+.equipe-invite-section {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1rem 1.25rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  max-width: 600px;
+  margin-bottom: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.equipe-invite-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.equipe-invite-label {
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.equipe-invite-code {
+  font-weight: 700;
+  color: #2563eb;
+  letter-spacing: 0.1em;
+  font-size: 1rem;
+}
+
+.equipe-invite-copy {
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  color: #64748b;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.equipe-invite-copy:hover {
+  background: #f1f5f9;
+  color: #1e293b;
+}
+
+.equipe-reset-btn {
+  background: transparent;
+  border: 1px solid #fca5a5;
+  color: #dc2626;
+  padding: 0.35rem 0.75rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background-color 0.2s;
+  white-space: nowrap;
+}
+
+.equipe-reset-btn:hover {
+  background: #fef2f2;
+}
+
+.equipe-reset-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .equipe-list {
   display: flex;
   flex-direction: column;

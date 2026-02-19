@@ -169,6 +169,26 @@ app.delete('/api/groups/members/:userId', async (req, res) => {
   res.json({ ok: true })
 })
 
+// Reset invite code (admin only)
+app.post('/api/groups/reset-invite', async (req, res) => {
+  if (!req.user.group_id) return res.status(403).json({ error: 'Vous devez rejoindre un groupe' })
+  const group = await pool.query('SELECT owner_id FROM groups WHERE id = $1', [req.user.group_id])
+  if (group.rows[0]?.owner_id !== req.user.id) {
+    return res.status(403).json({ error: 'Seul l\'administrateur peut reinitialiser le code' })
+  }
+  let invite_code
+  for (let i = 0; i < 10; i++) {
+    invite_code = generateInviteCode()
+    const exists = await pool.query('SELECT id FROM groups WHERE invite_code = $1', [invite_code])
+    if (exists.rows.length === 0) break
+  }
+  const { rows } = await pool.query(
+    'UPDATE groups SET invite_code = $1 WHERE id = $2 RETURNING *',
+    [invite_code, req.user.group_id]
+  )
+  res.json(rows[0])
+})
+
 // Middleware: require group_id for all data routes below
 app.use('/api', (req, res, next) => {
   if (req.path.startsWith('/auth/') || req.path.startsWith('/groups')) return next()

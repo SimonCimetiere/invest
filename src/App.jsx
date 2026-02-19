@@ -7,6 +7,7 @@ import Biens from './pages/Biens'
 import Financement from './pages/Financement'
 import Fiscalite from './pages/Fiscalite'
 import Questionnaire from './pages/Questionnaire'
+import Equipe from './pages/Equipe'
 import Login from './pages/Login'
 import GroupSetup from './pages/GroupSetup'
 
@@ -25,6 +26,7 @@ function AppRoutes() {
         <Route path="financement" element={<Financement />} />
         <Route path="fiscalite" element={<Fiscalite />} />
         <Route path="questionnaire" element={<Questionnaire />} />
+        <Route path="equipe" element={<Equipe />} />
       </Route>
     </Routes>
   )

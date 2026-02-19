@@ -41,6 +41,9 @@ function Layout() {
           <li>
             <NavLink to="/fiscalite">Fiscalité</NavLink>
           </li>
+          <li>
+            <NavLink to="/equipe">Équipe</NavLink>
+          </li>
         </ul>
         <div className="sidebar-footer">
           {group && (

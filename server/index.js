@@ -139,6 +139,36 @@ app.post('/api/groups/join', async (req, res) => {
   res.json({ group, token })
 })
 
+// List members of the current user's group
+app.get('/api/groups/members', async (req, res) => {
+  if (!req.user.group_id) return res.status(403).json({ error: 'Vous devez rejoindre un groupe' })
+  const { rows } = await pool.query(
+    'SELECT id, name, email, avatar_url, created_at FROM users WHERE group_id = $1 ORDER BY created_at ASC',
+    [req.user.group_id]
+  )
+  // Check if current user is the group owner
+  const group = await pool.query('SELECT owner_id FROM groups WHERE id = $1', [req.user.group_id])
+  const owner_id = group.rows[0]?.owner_id || null
+  res.json({ members: rows, owner_id })
+})
+
+// Remove a member from the group (admin only)
+app.delete('/api/groups/members/:userId', async (req, res) => {
+  if (!req.user.group_id) return res.status(403).json({ error: 'Vous devez rejoindre un groupe' })
+  const group = await pool.query('SELECT owner_id FROM groups WHERE id = $1', [req.user.group_id])
+  if (group.rows[0]?.owner_id !== req.user.id) {
+    return res.status(403).json({ error: 'Seul l\'administrateur peut retirer des membres' })
+  }
+  const targetId = parseInt(req.params.userId, 10)
+  if (targetId === req.user.id) {
+    return res.status(400).json({ error: 'Vous ne pouvez pas vous retirer vous-meme' })
+  }
+  const target = await pool.query('SELECT id FROM users WHERE id = $1 AND group_id = $2', [targetId, req.user.group_id])
+  if (target.rows.length === 0) return res.status(404).json({ error: 'Membre introuvable' })
+  await pool.query('UPDATE users SET group_id = NULL WHERE id = $1', [targetId])
+  res.json({ ok: true })
+})
+
 // Middleware: require group_id for all data routes below
 app.use('/api', (req, res, next) => {
   if (req.path.startsWith('/auth/') || req.path.startsWith('/groups')) return next()

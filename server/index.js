@@ -524,6 +524,118 @@ app.delete('/api/patrimoine/:id', async (req, res) => {
   res.status(204).end()
 })
 
+// ---- Transactions ----
+
+// List transactions (with optional filters)
+app.get('/api/transactions', async (req, res) => {
+  let query = 'SELECT t.*, p.title AS patrimoine_title FROM transactions t JOIN patrimoine p ON t.patrimoine_id = p.id WHERE t.group_id = $1'
+  const params = [req.user.group_id]
+  let idx = 2
+  if (req.query.patrimoine_id) {
+    query += ` AND t.patrimoine_id = $${idx++}`
+    params.push(req.query.patrimoine_id)
+  }
+  if (req.query.year) {
+    query += ` AND EXTRACT(YEAR FROM t.transaction_date) = $${idx++}`
+    params.push(req.query.year)
+  }
+  if (req.query.month) {
+    query += ` AND EXTRACT(MONTH FROM t.transaction_date) = $${idx++}`
+    params.push(req.query.month)
+  }
+  query += ' ORDER BY t.transaction_date DESC'
+  const { rows } = await pool.query(query, params)
+  res.json(rows)
+})
+
+// Create transaction
+app.post('/api/transactions', async (req, res) => {
+  const b = req.body
+  if (!b.patrimoine_id || !b.type || b.amount == null || !b.transaction_date) {
+    return res.status(400).json({ error: 'patrimoine_id, type, amount et transaction_date requis' })
+  }
+  const { rows } = await pool.query(
+    `INSERT INTO transactions (patrimoine_id, type, amount, transaction_date, description, is_paid, group_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *`,
+    [b.patrimoine_id, b.type, b.amount, b.transaction_date, b.description || null, b.is_paid ?? false, req.user.group_id]
+  )
+  res.status(201).json(rows[0])
+})
+
+// Update transaction
+app.put('/api/transactions/:id', async (req, res) => {
+  const b = req.body
+  const { rows } = await pool.query(
+    `UPDATE transactions SET
+     patrimoine_id = COALESCE($1, patrimoine_id), type = COALESCE($2, type),
+     amount = COALESCE($3, amount), transaction_date = COALESCE($4, transaction_date),
+     description = COALESCE($5, description), is_paid = COALESCE($6, is_paid)
+     WHERE id = $7 AND group_id = $8 RETURNING *`,
+    [b.patrimoine_id, b.type, b.amount, b.transaction_date, b.description, b.is_paid, req.params.id, req.user.group_id]
+  )
+  if (rows.length === 0) return res.status(404).json({ error: 'Not found' })
+  res.json(rows[0])
+})
+
+// Delete transaction
+app.delete('/api/transactions/:id', async (req, res) => {
+  const { rowCount } = await pool.query(
+    'DELETE FROM transactions WHERE id = $1 AND group_id = $2',
+    [req.params.id, req.user.group_id]
+  )
+  if (rowCount === 0) return res.status(404).json({ error: 'Not found' })
+  res.status(204).end()
+})
+
+// Financial summary
+app.get('/api/finances/summary', async (req, res) => {
+  const gid = req.user.group_id
+
+  // Per-property summary
+  const { rows: perBien } = await pool.query(`
+    SELECT
+      p.id, p.title, p.purchase_price,
+      COALESCE(SUM(CASE WHEN t.amount > 0 THEN t.amount ELSE 0 END), 0)::int AS total_revenus,
+      COALESCE(SUM(CASE WHEN t.amount < 0 THEN t.amount ELSE 0 END), 0)::int AS total_depenses,
+      COALESCE(SUM(t.amount), 0)::int AS cash_flow
+    FROM patrimoine p
+    LEFT JOIN transactions t ON t.patrimoine_id = p.id
+    WHERE p.group_id = $1
+    GROUP BY p.id, p.title, p.purchase_price
+    ORDER BY p.title
+  `, [gid])
+
+  // Unpaid rents
+  const { rows: impayes } = await pool.query(`
+    SELECT t.*, p.title AS patrimoine_title
+    FROM transactions t JOIN patrimoine p ON t.patrimoine_id = p.id
+    WHERE t.group_id = $1 AND t.type = 'loyer' AND t.is_paid = false
+    ORDER BY t.transaction_date DESC
+  `, [gid])
+
+  // Global totals
+  const totalRevenus = perBien.reduce((s, b) => s + b.total_revenus, 0)
+  const totalDepenses = perBien.reduce((s, b) => s + b.total_depenses, 0)
+  const totalCashFlow = totalRevenus + totalDepenses
+  const totalPurchase = perBien.reduce((s, b) => s + (b.purchase_price || 0), 0)
+  const rendementBrut = totalPurchase > 0 ? (totalRevenus / totalPurchase * 100) : 0
+  const rendementNet = totalPurchase > 0 ? ((totalRevenus + totalDepenses) / totalPurchase * 100) : 0
+
+  res.json({
+    per_bien: perBien,
+    impayes,
+    global: {
+      total_revenus: totalRevenus,
+      total_depenses: totalDepenses,
+      cash_flow: totalCashFlow,
+      rendement_brut: Math.round(rendementBrut * 100) / 100,
+      rendement_net: Math.round(rendementNet * 100) / 100,
+      impayes_count: impayes.length,
+      impayes_amount: impayes.reduce((s, i) => s + i.amount, 0),
+    },
+  })
+})
+
 // JSON error handler for API routes
 app.use('/api', (err, req, res, next) => {
   console.error('API error:', err)

@@ -33,6 +33,9 @@ function Layout() {
             <NavLink to="/patrimoine">Patrimoine</NavLink>
           </li>
           <li>
+            <NavLink to="/finances">Finances</NavLink>
+          </li>
+          <li>
             <NavLink to="/equipe">Équipe</NavLink>
           </li>
         </ul>

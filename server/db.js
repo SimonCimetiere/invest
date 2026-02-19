@@ -82,6 +82,20 @@ export async function initDb() {
     )
   `)
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS transactions (
+      id SERIAL PRIMARY KEY,
+      patrimoine_id INTEGER NOT NULL REFERENCES patrimoine(id) ON DELETE CASCADE,
+      type VARCHAR(30) NOT NULL,
+      amount INTEGER NOT NULL,
+      transaction_date DATE NOT NULL,
+      description TEXT,
+      is_paid BOOLEAN DEFAULT false,
+      group_id INTEGER REFERENCES groups(id),
+      created_at TIMESTAMPTZ DEFAULT NOW()
+    )
+  `)
+
   // Migrations for existing databases
   const cols = ['bedrooms', 'property_type', 'energy_rating', 'floor', 'charges', 'ref']
   for (const col of cols) {

@@ -16,14 +16,16 @@ function formatPrice(n) {
 function Dashboard() {
   const [patrimoine, setPatrimoine] = useState([])
   const [annonces, setAnnonces] = useState([])
+  const [finSummary, setFinSummary] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.all([
       apiFetch('/api/patrimoine').then(r => r.json()),
       apiFetch('/api/annonces').then(r => r.json()),
+      apiFetch('/api/finances/summary').then(r => r.json()),
     ])
-      .then(([p, a]) => { setPatrimoine(p); setAnnonces(a) })
+      .then(([p, a, f]) => { setPatrimoine(p); setAnnonces(a); setFinSummary(f) })
       .catch(() => {})
       .finally(() => setLoading(false))
   }, [])
@@ -78,10 +80,24 @@ function Dashboard() {
           <span className="metric-sub">loyers annuels / prix d'achat</span>
         </div>
         <div className="metric-card">
+          <span className="metric-label">Rendement net</span>
+          <span className={`metric-value ${finSummary?.global?.rendement_net >= 0 ? 'metric-positive' : 'metric-negative'}`}>
+            {finSummary?.global?.rendement_net != null ? finSummary.global.rendement_net.toFixed(1) + ' %' : '--'}
+          </span>
+          <span className="metric-sub">revenus - charges reelles</span>
+        </div>
+        <div className="metric-card">
           <span className="metric-label">Taux d'occupation</span>
           <span className="metric-value">{tauxOccupation != null ? tauxOccupation + ' %' : '--'}</span>
           <span className="metric-sub">{biensLoues} loué{biensLoues > 1 ? 's' : ''} / {biensVacants} vacant{biensVacants > 1 ? 's' : ''}</span>
         </div>
+        {finSummary?.global?.impayes_count > 0 && (
+          <div className="metric-card metric-card-alert">
+            <span className="metric-label">Loyers impayes</span>
+            <span className="metric-value metric-negative">{finSummary.global.impayes_count}</span>
+            <span className="metric-sub">{formatPrice(finSummary.global.impayes_amount)} en attente</span>
+          </div>
+        )}
         <div className="metric-card">
           <span className="metric-label">Annonces en suivi</span>
           <span className="metric-value">{annonces.length}</span>

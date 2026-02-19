@@ -18,15 +18,9 @@ export async function initDb() {
     )
   `)
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS questionnaires (
-      id SERIAL PRIMARY KEY,
-      data JSONB NOT NULL,
-      validated BOOLEAN DEFAULT false,
-      created_at TIMESTAMPTZ DEFAULT NOW(),
-      updated_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `)
+  // Drop legacy questionnaires table
+  await pool.query('DROP TABLE IF EXISTS questionnaires')
+
   await pool.query(`
     CREATE TABLE IF NOT EXISTS search_prompts (
       id SERIAL PRIMARY KEY,
@@ -95,7 +89,6 @@ export async function initDb() {
   // Add group_id columns
   await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES groups(id)').catch(() => {})
   await pool.query('ALTER TABLE annonces ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES groups(id)').catch(() => {})
-  await pool.query('ALTER TABLE questionnaires ADD COLUMN IF NOT EXISTS group_id INTEGER REFERENCES groups(id)').catch(() => {})
 }
 
 export default pool

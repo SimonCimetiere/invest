@@ -18,16 +18,11 @@ export async function initDb() {
     )
   `)
 
-  // Drop legacy questionnaires table
+  // Drop legacy tables
   await pool.query('DROP TABLE IF EXISTS questionnaires')
+  await pool.query('ALTER TABLE annonces DROP COLUMN IF EXISTS search_prompt_id').catch(() => {})
+  await pool.query('DROP TABLE IF EXISTS search_prompts')
 
-  await pool.query(`
-    CREATE TABLE IF NOT EXISTS search_prompts (
-      id SERIAL PRIMARY KEY,
-      prompt TEXT NOT NULL,
-      created_at TIMESTAMPTZ DEFAULT NOW()
-    )
-  `)
   await pool.query(`
     CREATE TABLE IF NOT EXISTS annonces (
       id SERIAL PRIMARY KEY,
@@ -47,7 +42,6 @@ export async function initDb() {
       charges TEXT,
       ref TEXT,
       dismissed BOOLEAN DEFAULT false,
-      search_prompt_id INTEGER REFERENCES search_prompts(id),
       created_at TIMESTAMPTZ DEFAULT NOW()
     )
   `)

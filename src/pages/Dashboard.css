@@ -9,18 +9,22 @@
   gap: 1.25rem;
 }
 
+.dashboard-row-2 {
+  margin-top: 1.25rem;
+}
+
 .metric-card {
   background: #ffffff;
   border-radius: 12px;
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.25rem;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
 }
 
 .metric-label {
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   color: #64748b;
   font-weight: 500;
   text-transform: uppercase;
@@ -33,8 +37,15 @@
   color: #1e293b;
 }
 
-.dashboard-hint {
-  margin-top: 2rem;
+.metric-positive {
+  color: #16a34a;
+}
+
+.metric-negative {
+  color: #dc2626;
+}
+
+.metric-sub {
+  font-size: 0.78rem;
   color: #94a3b8;
-  font-style: italic;
 }

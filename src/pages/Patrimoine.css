@@ -1,0 +1,302 @@
+.patrimoine h1 {
+  margin: 0 0 1.25rem;
+  color: #1e293b;
+}
+
+.patrimoine-add-toggle {
+  margin-bottom: 1.25rem;
+}
+
+.patrimoine-section {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.patrimoine-section h3 {
+  margin: 0 0 1rem;
+  color: #1e293b;
+}
+
+.patrimoine-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+.patrimoine-grid .field label {
+  display: block;
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-bottom: 0.3rem;
+  font-weight: 500;
+}
+
+.patrimoine-grid .field input[type="text"],
+.patrimoine-grid .field input[type="number"] {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.patrimoine-grid .field input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+.patrimoine-rented-field label {
+  display: flex !important;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem !important;
+  color: #1e293b !important;
+  cursor: pointer;
+  padding-top: 1.2rem;
+}
+
+.patrimoine-rented-field input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  accent-color: #2563eb;
+}
+
+.patrimoine-form-actions {
+  margin-top: 1rem;
+}
+
+/* Cards */
+
+.patrimoine-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+  gap: 1.25rem;
+}
+
+.patrimoine-card {
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 12px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  transition: box-shadow 0.2s;
+}
+
+.patrimoine-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+}
+
+.patrimoine-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.patrimoine-card-title {
+  margin: 0;
+  font-size: 1.05rem;
+  color: #1e293b;
+}
+
+.patrimoine-status {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.status-rented {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.status-vacant {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.patrimoine-card-address {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #64748b;
+}
+
+.patrimoine-card-metrics {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.patrimoine-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.patrimoine-metric-label {
+  font-size: 0.75rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  font-weight: 500;
+  letter-spacing: 0.03em;
+}
+
+.patrimoine-metric-value {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #1e293b;
+}
+
+.patrimoine-metric-rent {
+  color: #16a34a;
+}
+
+.patrimoine-card-credit {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 0.75rem;
+}
+
+.patrimoine-credit-title {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.patrimoine-credit-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-top: 0.35rem;
+  font-size: 0.85rem;
+  color: #475569;
+}
+
+.patrimoine-mensualite {
+  color: #1e293b;
+  font-size: 0.9rem;
+}
+
+.patrimoine-mensualite strong {
+  color: #2563eb;
+}
+
+.patrimoine-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid #e2e8f0;
+  padding-top: 0.75rem;
+  margin-top: auto;
+}
+
+.patrimoine-date {
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.patrimoine-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* Buttons */
+
+.btn {
+  padding: 0.5rem 1rem;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  font-family: inherit;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.btn-sm {
+  padding: 0.3rem 0.7rem;
+  font-size: 0.78rem;
+}
+
+.btn-primary {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.btn-primary:hover {
+  background: #1d4ed8;
+}
+
+.btn-outline {
+  background: transparent;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+}
+
+.btn-outline:hover {
+  background: #f1f5f9;
+}
+
+.btn-danger {
+  background: transparent;
+  border: 1px solid #fca5a5;
+  color: #dc2626;
+}
+
+.btn-danger:hover {
+  background: #fef2f2;
+}
+
+/* Modal */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.modal {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 1.5rem;
+  width: 90%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.modal h3 {
+  margin: 0 0 1rem;
+  color: #1e293b;
+}
+
+.modal-actions {
+  margin-top: 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.empty-state {
+  color: #94a3b8;
+  font-style: italic;
+  margin-top: 1rem;
+}

@@ -4,6 +4,7 @@ import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Biens from './pages/Biens'
 import Equipe from './pages/Equipe'
+import Patrimoine from './pages/Patrimoine'
 import Login from './pages/Login'
 import GroupSetup from './pages/GroupSetup'
 
@@ -18,6 +19,7 @@ function AppRoutes() {
       <Route path="/" element={<Layout />}>
         <Route index element={<Dashboard />} />
         <Route path="biens" element={<Biens />} />
+        <Route path="patrimoine" element={<Patrimoine />} />
         <Route path="equipe" element={<Equipe />} />
       </Route>
     </Routes>

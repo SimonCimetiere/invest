@@ -475,6 +475,54 @@ app.delete('/api/comments/:id', async (req, res) => {
   res.status(204).end()
 })
 
+// ---- Patrimoine ----
+
+// List all patrimoine for the group
+app.get('/api/patrimoine', async (req, res) => {
+  const { rows } = await pool.query(
+    'SELECT * FROM patrimoine WHERE group_id = $1 ORDER BY created_at DESC',
+    [req.user.group_id]
+  )
+  res.json(rows)
+})
+
+// Add a patrimoine
+app.post('/api/patrimoine', async (req, res) => {
+  const b = req.body
+  if (!b.title || !b.title.trim()) return res.status(400).json({ error: 'Titre requis' })
+  const { rows } = await pool.query(
+    `INSERT INTO patrimoine (title, address, purchase_price, is_rented, monthly_rent, credit_amount, credit_rate, credit_duration_months, group_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
+    [b.title.trim(), b.address || null, b.purchase_price || null, b.is_rented || false, b.monthly_rent || null, b.credit_amount || null, b.credit_rate || null, b.credit_duration_months || null, req.user.group_id]
+  )
+  res.status(201).json(rows[0])
+})
+
+// Update a patrimoine
+app.put('/api/patrimoine/:id', async (req, res) => {
+  const b = req.body
+  const { rows } = await pool.query(
+    `UPDATE patrimoine SET
+     title = COALESCE($1, title), address = COALESCE($2, address),
+     purchase_price = $3, is_rented = $4, monthly_rent = $5,
+     credit_amount = $6, credit_rate = $7, credit_duration_months = $8
+     WHERE id = $9 AND group_id = $10 RETURNING *`,
+    [b.title, b.address, b.purchase_price || null, b.is_rented || false, b.monthly_rent || null, b.credit_amount || null, b.credit_rate || null, b.credit_duration_months || null, req.params.id, req.user.group_id]
+  )
+  if (rows.length === 0) return res.status(404).json({ error: 'Not found' })
+  res.json(rows[0])
+})
+
+// Delete a patrimoine
+app.delete('/api/patrimoine/:id', async (req, res) => {
+  const { rowCount } = await pool.query(
+    'DELETE FROM patrimoine WHERE id = $1 AND group_id = $2',
+    [req.params.id, req.user.group_id]
+  )
+  if (rowCount === 0) return res.status(404).json({ error: 'Not found' })
+  res.status(204).end()
+})
+
 // JSON error handler for API routes
 app.use('/api', (err, req, res, next) => {
   console.error('API error:', err)

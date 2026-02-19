@@ -6,5 +6,11 @@ export function apiFetch(url, options = {}) {
       ...options.headers,
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
+  }).then(res => {
+    if (res.status === 401) {
+      localStorage.removeItem('token')
+      window.location.reload()
+    }
+    return res
   })
 }

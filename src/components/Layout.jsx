@@ -27,19 +27,7 @@ function Layout() {
             <NavLink to="/" end>Dashboard</NavLink>
           </li>
           <li>
-            <NavLink to="/questionnaire">Questionnaire</NavLink>
-          </li>
-          <li>
-            <NavLink to="/simulateur">Simulateur</NavLink>
-          </li>
-          <li>
             <NavLink to="/biens">Biens</NavLink>
-          </li>
-          <li>
-            <NavLink to="/financement">Financement</NavLink>
-          </li>
-          <li>
-            <NavLink to="/fiscalite">Fiscalité</NavLink>
           </li>
           <li>
             <NavLink to="/equipe">Équipe</NavLink>

@@ -196,59 +196,6 @@ app.use('/api', (req, res, next) => {
   next()
 })
 
-// List all questionnaires
-app.get('/api/questionnaires', async (req, res) => {
-  const { rows } = await pool.query(
-    'SELECT * FROM questionnaires WHERE group_id = $1 ORDER BY updated_at DESC',
-    [req.user.group_id]
-  )
-  res.json(rows)
-})
-
-// Get one questionnaire
-app.get('/api/questionnaires/:id', async (req, res) => {
-  const { rows } = await pool.query(
-    'SELECT * FROM questionnaires WHERE id = $1',
-    [req.params.id]
-  )
-  if (rows.length === 0) return res.status(404).json({ error: 'Not found' })
-  res.json(rows[0])
-})
-
-// Create a questionnaire
-app.post('/api/questionnaires', async (req, res) => {
-  const { data, validated } = req.body
-  const { rows } = await pool.query(
-    'INSERT INTO questionnaires (data, validated, group_id) VALUES ($1, $2, $3) RETURNING *',
-    [JSON.stringify(data), validated ?? false, req.user.group_id]
-  )
-  res.status(201).json(rows[0])
-})
-
-// Update a questionnaire
-app.put('/api/questionnaires/:id', async (req, res) => {
-  const { data, validated } = req.body
-  const { rows } = await pool.query(
-    `UPDATE questionnaires
-     SET data = $1, validated = $2, updated_at = NOW()
-     WHERE id = $3 AND group_id = $4
-     RETURNING *`,
-    [JSON.stringify(data), validated ?? false, req.params.id, req.user.group_id]
-  )
-  if (rows.length === 0) return res.status(404).json({ error: 'Not found' })
-  res.json(rows[0])
-})
-
-// Delete a questionnaire
-app.delete('/api/questionnaires/:id', async (req, res) => {
-  const { rowCount } = await pool.query(
-    'DELETE FROM questionnaires WHERE id = $1 AND group_id = $2',
-    [req.params.id, req.user.group_id]
-  )
-  if (rowCount === 0) return res.status(404).json({ error: 'Not found' })
-  res.status(204).end()
-})
-
 // ---- Annonces ----
 
 // Extract metadata from a URL (og tags + structured data + patterns)

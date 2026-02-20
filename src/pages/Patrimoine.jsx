@@ -61,6 +61,9 @@ function Patrimoine() {
   const [editData, setEditData] = useState(emptyForm)
   const [sortKey, setSortKey] = useState(null)
   const [sortDir, setSortDir] = useState('asc')
+  const [bailBien, setBailBien] = useState(null)
+  const [bailForm, setBailForm] = useState({})
+  const [bailLoading, setBailLoading] = useState(false)
 
   useEffect(() => {
     apiFetch('/api/patrimoine')
@@ -161,6 +164,69 @@ function Patrimoine() {
     if (!confirm('Supprimer ce bien ?')) return
     const res = await apiFetch(`/api/patrimoine/${id}`, { method: 'DELETE' })
     if (res.ok) setBiens(prev => prev.filter(b => b.id !== id))
+  }
+
+  function openBail(bien) {
+    const today = new Date().toISOString().slice(0, 10)
+    setBailBien(bien)
+    setBailForm({
+      type: 'vide',
+      bailleur_nom: '',
+      bailleur_adresse: '',
+      locataire_nom: '',
+      locataire_adresse_precedente: '',
+      bien_adresse: bien.address || '',
+      bien_description: '',
+      bien_surface: '',
+      date_debut: bien.lease_start_date ? bien.lease_start_date.slice(0, 10) : today,
+      duree: '3 ans',
+      loyer: bien.monthly_rent || '',
+      charges: '',
+      depot_garantie: bien.monthly_rent || '',
+      mode_paiement: 'virement bancaire',
+      inventaire_meubles: '',
+      lieu_signature: '',
+      date_signature: today,
+    })
+  }
+
+  function handleBailTypeChange(type) {
+    const isMeuble = type === 'meuble'
+    setBailForm(f => ({
+      ...f,
+      type,
+      duree: isMeuble ? '1 an' : '3 ans',
+      depot_garantie: isMeuble ? (f.loyer ? String(Number(f.loyer) * 2) : '') : (f.loyer || ''),
+    }))
+  }
+
+  async function handleBailSubmit(e) {
+    e.preventDefault()
+    setBailLoading(true)
+    try {
+      const res = await apiFetch(`/api/patrimoine/${bailBien.id}/bail`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bailForm),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        alert(err.error || 'Erreur lors de la génération')
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `bail_${(bailBien.title || 'bien').replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+      setBailBien(null)
+    } catch {
+      alert('Erreur réseau')
+    } finally {
+      setBailLoading(false)
+    }
   }
 
   function renderForm(data, setData, onSubmit, submitLabel) {
@@ -288,6 +354,7 @@ function Patrimoine() {
                     <td className="patrimoine-cell-mensualite">{mensualite ? formatPrice(mensualite) : '--'}</td>
                     <td className="patrimoine-cell-actions">
                       <button className="btn btn-sm btn-outline" onClick={() => openEdit(bien)}>Modifier</button>
+                      <button className="btn btn-sm btn-outline" onClick={() => openBail(bien)}>Bail</button>
                       <button className="btn btn-sm btn-danger" onClick={() => handleDelete(bien.id)}>Supprimer</button>
                     </td>
                   </tr>
@@ -306,6 +373,139 @@ function Patrimoine() {
             <div className="modal-actions">
               <button className="btn btn-outline" onClick={() => setEditingId(null)}>Annuler</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {bailBien && (
+        <div className="modal-overlay" onClick={() => !bailLoading && setBailBien(null)}>
+          <div className="modal modal-bail" onClick={e => e.stopPropagation()}>
+            <h3>Générer un bail — {bailBien.title}</h3>
+            <form onSubmit={handleBailSubmit}>
+              <div className="bail-section">
+                <h4>Type de bail</h4>
+                <div className="bail-grid">
+                  <div className="field">
+                    <label>Type</label>
+                    <select value={bailForm.type} onChange={e => handleBailTypeChange(e.target.value)}>
+                      <option value="vide">Location vide</option>
+                      <option value="meuble">Location meublée</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bail-section">
+                <h4>Bailleur</h4>
+                <div className="bail-grid">
+                  <div className="field">
+                    <label>Nom *</label>
+                    <input value={bailForm.bailleur_nom} onChange={e => setBailForm(f => ({ ...f, bailleur_nom: e.target.value }))} required />
+                  </div>
+                  <div className="field">
+                    <label>Adresse *</label>
+                    <input value={bailForm.bailleur_adresse} onChange={e => setBailForm(f => ({ ...f, bailleur_adresse: e.target.value }))} required />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bail-section">
+                <h4>Locataire</h4>
+                <div className="bail-grid">
+                  <div className="field">
+                    <label>Nom *</label>
+                    <input value={bailForm.locataire_nom} onChange={e => setBailForm(f => ({ ...f, locataire_nom: e.target.value }))} required />
+                  </div>
+                  <div className="field">
+                    <label>Adresse précédente *</label>
+                    <input value={bailForm.locataire_adresse_precedente} onChange={e => setBailForm(f => ({ ...f, locataire_adresse_precedente: e.target.value }))} required />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bail-section">
+                <h4>Bien</h4>
+                <div className="bail-grid">
+                  <div className="field">
+                    <label>Adresse *</label>
+                    <input value={bailForm.bien_adresse} onChange={e => setBailForm(f => ({ ...f, bien_adresse: e.target.value }))} required />
+                  </div>
+                  <div className="field">
+                    <label>Surface (m²)</label>
+                    <input value={bailForm.bien_surface} onChange={e => setBailForm(f => ({ ...f, bien_surface: e.target.value }))} />
+                  </div>
+                  <div className="field" style={{ gridColumn: '1 / -1' }}>
+                    <label>Description</label>
+                    <textarea rows={2} value={bailForm.bien_description} onChange={e => setBailForm(f => ({ ...f, bien_description: e.target.value }))} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="bail-section">
+                <h4>Conditions</h4>
+                <div className="bail-grid">
+                  <div className="field">
+                    <label>Date de début *</label>
+                    <input type="date" value={bailForm.date_debut} onChange={e => setBailForm(f => ({ ...f, date_debut: e.target.value }))} required />
+                  </div>
+                  <div className="field">
+                    <label>Durée</label>
+                    <input value={bailForm.duree} onChange={e => setBailForm(f => ({ ...f, duree: e.target.value }))} />
+                  </div>
+                  <div className="field">
+                    <label>Loyer mensuel (€) *</label>
+                    <input type="number" value={bailForm.loyer} onChange={e => setBailForm(f => ({ ...f, loyer: e.target.value }))} required />
+                  </div>
+                  <div className="field">
+                    <label>Charges (€/mois)</label>
+                    <input type="number" value={bailForm.charges} onChange={e => setBailForm(f => ({ ...f, charges: e.target.value }))} />
+                  </div>
+                  <div className="field">
+                    <label>Dépôt de garantie (€) *</label>
+                    <input type="number" value={bailForm.depot_garantie} onChange={e => setBailForm(f => ({ ...f, depot_garantie: e.target.value }))} required />
+                  </div>
+                  <div className="field">
+                    <label>Mode de paiement</label>
+                    <select value={bailForm.mode_paiement} onChange={e => setBailForm(f => ({ ...f, mode_paiement: e.target.value }))}>
+                      <option value="virement bancaire">Virement bancaire</option>
+                      <option value="prélèvement automatique">Prélèvement automatique</option>
+                      <option value="chèque">Chèque</option>
+                      <option value="espèces">Espèces</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {bailForm.type === 'meuble' && (
+                <div className="bail-section">
+                  <h4>Inventaire du mobilier</h4>
+                  <div className="field">
+                    <textarea rows={4} value={bailForm.inventaire_meubles} onChange={e => setBailForm(f => ({ ...f, inventaire_meubles: e.target.value }))} placeholder="Liste du mobilier fourni..." />
+                  </div>
+                </div>
+              )}
+
+              <div className="bail-section">
+                <h4>Signature</h4>
+                <div className="bail-grid">
+                  <div className="field">
+                    <label>Lieu</label>
+                    <input value={bailForm.lieu_signature} onChange={e => setBailForm(f => ({ ...f, lieu_signature: e.target.value }))} />
+                  </div>
+                  <div className="field">
+                    <label>Date</label>
+                    <input type="date" value={bailForm.date_signature} onChange={e => setBailForm(f => ({ ...f, date_signature: e.target.value }))} />
+                  </div>
+                </div>
+              </div>
+
+              <div className="modal-actions">
+                <button type="button" className="btn btn-outline" onClick={() => setBailBien(null)} disabled={bailLoading}>Annuler</button>
+                <button type="submit" className="btn btn-primary" disabled={bailLoading}>
+                  {bailLoading ? 'Génération...' : 'Générer le bail'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

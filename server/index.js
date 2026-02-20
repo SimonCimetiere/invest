@@ -5,6 +5,7 @@ import { fileURLToPath } from 'url'
 import jwt from 'jsonwebtoken'
 import { OAuth2Client } from 'google-auth-library'
 import pool, { initDb } from './db.js'
+import { generateBailPDF } from './bail-pdf.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me'
@@ -522,6 +523,33 @@ app.delete('/api/patrimoine/:id', async (req, res) => {
   )
   if (rowCount === 0) return res.status(404).json({ error: 'Not found' })
   res.status(204).end()
+})
+
+// ---- Bail PDF ----
+
+app.post('/api/patrimoine/:id/bail', async (req, res) => {
+  const { rows } = await pool.query(
+    'SELECT * FROM patrimoine WHERE id = $1 AND group_id = $2',
+    [req.params.id, req.user.group_id]
+  )
+  if (rows.length === 0) return res.status(404).json({ error: 'Bien introuvable' })
+
+  const b = req.body
+  const required = ['type', 'bailleur_nom', 'bailleur_adresse', 'locataire_nom', 'locataire_adresse_precedente', 'bien_adresse', 'date_debut', 'loyer', 'depot_garantie']
+  for (const field of required) {
+    if (!b[field]) return res.status(400).json({ error: `Champ requis manquant : ${field}` })
+  }
+  if (!['vide', 'meuble'].includes(b.type)) {
+    return res.status(400).json({ error: 'Type de bail invalide (vide ou meuble)' })
+  }
+
+  const doc = generateBailPDF(b)
+  const title = rows[0].title || 'bien'
+  const filename = `bail_${title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
+
+  res.setHeader('Content-Type', 'application/pdf')
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+  doc.pipe(res)
 })
 
 // ---- Transactions ----

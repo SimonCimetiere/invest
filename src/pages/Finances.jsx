@@ -37,6 +37,8 @@ function Finances() {
   const [filterMonth, setFilterMonth] = useState('')
   const [sortKey, setSortKey] = useState('transaction_date')
   const [sortDir, setSortDir] = useState('desc')
+  const [exportPeriod, setExportPeriod] = useState('annuel')
+  const [exportLoading, setExportLoading] = useState(false)
 
   const emptyForm = {
     patrimoine_id: '', type: 'loyer', amount: '', transaction_date: new Date().toISOString().slice(0, 10),
@@ -107,6 +109,31 @@ function Finances() {
     } else {
       setSortKey(key)
       setSortDir('asc')
+    }
+  }
+
+  async function handleExport() {
+    setExportLoading(true)
+    try {
+      const params = new URLSearchParams({ year: filterYear, period: exportPeriod })
+      if (filterBien) params.set('patrimoine_id', filterBien)
+      const res = await apiFetch(`/api/finances/bilan-pdf?${params}`)
+      if (!res.ok) {
+        const err = await res.json()
+        alert(err.error || 'Erreur lors de la génération')
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `bilan_${exportPeriod}_${filterYear}.pdf`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      alert('Erreur réseau')
+    } finally {
+      setExportLoading(false)
     }
   }
 
@@ -181,9 +208,23 @@ function Finances() {
             {months.map(m => <option key={m.v} value={m.v}>{m.l}</option>)}
           </select>
         </div>
-        <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
-          {showForm ? 'Annuler' : 'Ajouter une transaction'}
-        </button>
+        <div className="fin-toolbar-right">
+          <div className="fin-export">
+            <select value={exportPeriod} onChange={e => setExportPeriod(e.target.value)}>
+              <option value="annuel">Année complète</option>
+              <option value="T1">T1 (jan-mars)</option>
+              <option value="T2">T2 (avr-juin)</option>
+              <option value="T3">T3 (juil-sept)</option>
+              <option value="T4">T4 (oct-dec)</option>
+            </select>
+            <button className="btn btn-outline" onClick={handleExport} disabled={exportLoading}>
+              {exportLoading ? 'Export...' : 'Exporter le bilan'}
+            </button>
+          </div>
+          <button className="btn btn-primary" onClick={() => setShowForm(!showForm)}>
+            {showForm ? 'Annuler' : 'Ajouter une transaction'}
+          </button>
+        </div>
       </div>
 
       {/* Add form */}

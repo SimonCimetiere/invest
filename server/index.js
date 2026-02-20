@@ -6,6 +6,7 @@ import jwt from 'jsonwebtoken'
 import { OAuth2Client } from 'google-auth-library'
 import pool, { initDb } from './db.js'
 import { generateBailPDF } from './bail-pdf.js'
+import { generateBilanPDF } from './bilan-pdf.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me'
@@ -662,6 +663,75 @@ app.get('/api/finances/summary', async (req, res) => {
       impayes_amount: impayes.reduce((s, i) => s + i.amount, 0),
     },
   })
+})
+
+// Bilan PDF export
+app.get('/api/finances/bilan-pdf', async (req, res) => {
+  const gid = req.user.group_id
+  const year = parseInt(req.query.year) || new Date().getFullYear()
+  const period = req.query.period || 'annuel'
+  const patrimoineId = req.query.patrimoine_id || null
+
+  const quarters = {
+    T1: ['01-01', '03-31'], T2: ['04-01', '06-30'],
+    T3: ['07-01', '09-30'], T4: ['10-01', '12-31'],
+  }
+
+  let dateFrom, dateTo, periodLabel
+  if (quarters[period]) {
+    dateFrom = `${year}-${quarters[period][0]}`
+    dateTo = `${year}-${quarters[period][1]}`
+    periodLabel = `${period} ${year}`
+  } else {
+    dateFrom = `${year}-01-01`
+    dateTo = `${year}-12-31`
+    periodLabel = `Annee ${year}`
+  }
+
+  let query = `
+    SELECT t.patrimoine_id, p.title, t.type, SUM(t.amount)::int AS total
+    FROM transactions t JOIN patrimoine p ON t.patrimoine_id = p.id
+    WHERE t.group_id = $1 AND t.transaction_date >= $2 AND t.transaction_date <= $3
+  `
+  const params = [gid, dateFrom, dateTo]
+  if (patrimoineId) {
+    query += ' AND t.patrimoine_id = $4'
+    params.push(patrimoineId)
+  }
+  query += ' GROUP BY t.patrimoine_id, p.title, t.type ORDER BY p.title, t.type'
+
+  const { rows } = await pool.query(query, params)
+
+  // Restructure by bien
+  const biensMap = {}
+  for (const row of rows) {
+    if (!biensMap[row.patrimoine_id]) {
+      biensMap[row.patrimoine_id] = { title: row.title, lines: [], revenus: 0, depenses: 0, cashFlow: 0 }
+    }
+    const bien = biensMap[row.patrimoine_id]
+    const typeLabels = {
+      loyer: 'Loyer', charges_copro: 'Charges copropriete', taxe_fonciere: 'Taxe fonciere',
+      assurance_pno: 'Assurance PNO', travaux: 'Travaux', comptable: 'Comptable',
+      autre_depense: 'Autre depense', autre_revenu: 'Autre revenu',
+    }
+    bien.lines.push({ type: row.type, label: typeLabels[row.type] || row.type, total: row.total })
+    if (row.total > 0) bien.revenus += row.total
+    else bien.depenses += row.total
+    bien.cashFlow += row.total
+  }
+
+  const perBien = Object.values(biensMap)
+  const totals = {
+    revenus: perBien.reduce((s, b) => s + b.revenus, 0),
+    depenses: perBien.reduce((s, b) => s + b.depenses, 0),
+    cashFlow: perBien.reduce((s, b) => s + b.cashFlow, 0),
+  }
+
+  const doc = generateBilanPDF({ periodLabel, perBien, totals })
+  const filename = `bilan_${period}_${year}.pdf`
+  res.setHeader('Content-Type', 'application/pdf')
+  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
+  doc.pipe(res)
 })
 
 // JSON error handler for API routes

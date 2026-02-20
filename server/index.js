@@ -6,7 +6,7 @@ import jwt from 'jsonwebtoken'
 import { OAuth2Client } from 'google-auth-library'
 import pool, { initDb } from './db.js'
 import { generateBailPDF } from './bail-pdf.js'
-import { generateBilanPDF } from './bilan-pdf.js'
+import { generateBilanExcel } from './bilan-excel.js'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me'
@@ -665,8 +665,8 @@ app.get('/api/finances/summary', async (req, res) => {
   })
 })
 
-// Bilan PDF export
-app.get('/api/finances/bilan-pdf', async (req, res) => {
+// Bilan Excel export
+app.get('/api/finances/bilan-xlsx', async (req, res) => {
   const gid = req.user.group_id
   const year = parseInt(req.query.year) || new Date().getFullYear()
   const period = req.query.period || 'annuel'
@@ -702,36 +702,25 @@ app.get('/api/finances/bilan-pdf', async (req, res) => {
 
   const { rows } = await pool.query(query, params)
 
-  // Restructure by bien
+  // Aggregate by type (global) and by bien
+  const byType = {}
   const biensMap = {}
   for (const row of rows) {
+    byType[row.type] = (byType[row.type] || 0) + row.total
     if (!biensMap[row.patrimoine_id]) {
-      biensMap[row.patrimoine_id] = { title: row.title, lines: [], revenus: 0, depenses: 0, cashFlow: 0 }
+      biensMap[row.patrimoine_id] = { title: row.title, byType: {} }
     }
-    const bien = biensMap[row.patrimoine_id]
-    const typeLabels = {
-      loyer: 'Loyer', charges_copro: 'Charges copropriete', taxe_fonciere: 'Taxe fonciere',
-      assurance_pno: 'Assurance PNO', travaux: 'Travaux', comptable: 'Comptable',
-      autre_depense: 'Autre depense', autre_revenu: 'Autre revenu',
-    }
-    bien.lines.push({ type: row.type, label: typeLabels[row.type] || row.type, total: row.total })
-    if (row.total > 0) bien.revenus += row.total
-    else bien.depenses += row.total
-    bien.cashFlow += row.total
+    biensMap[row.patrimoine_id].byType[row.type] = (biensMap[row.patrimoine_id].byType[row.type] || 0) + row.total
   }
 
   const perBien = Object.values(biensMap)
-  const totals = {
-    revenus: perBien.reduce((s, b) => s + b.revenus, 0),
-    depenses: perBien.reduce((s, b) => s + b.depenses, 0),
-    cashFlow: perBien.reduce((s, b) => s + b.cashFlow, 0),
-  }
+  const workbook = await generateBilanExcel({ periodLabel, byType, perBien })
 
-  const doc = generateBilanPDF({ periodLabel, perBien, totals })
-  const filename = `bilan_${period}_${year}.pdf`
-  res.setHeader('Content-Type', 'application/pdf')
+  const filename = `bilan_${period}_${year}.xlsx`
+  res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
   res.setHeader('Content-Disposition', `attachment; filename="${filename}"`)
-  doc.pipe(res)
+  await workbook.xlsx.write(res)
+  res.end()
 })
 
 // JSON error handler for API routes

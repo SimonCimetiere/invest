@@ -117,7 +117,7 @@ function Finances() {
     try {
       const params = new URLSearchParams({ year: filterYear, period: exportPeriod })
       if (filterBien) params.set('patrimoine_id', filterBien)
-      const res = await apiFetch(`/api/finances/bilan-pdf?${params}`)
+      const res = await apiFetch(`/api/finances/bilan-xlsx?${params}`)
       if (!res.ok) {
         const err = await res.json()
         alert(err.error || 'Erreur lors de la génération')
@@ -127,7 +127,7 @@ function Finances() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `bilan_${exportPeriod}_${filterYear}.pdf`
+      a.download = `bilan_${exportPeriod}_${filterYear}.xlsx`
       a.click()
       URL.revokeObjectURL(url)
     } catch {
